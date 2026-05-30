@@ -11,6 +11,7 @@ const db = new PrismaClient();
 async function main() {
   // 0. 清理（仅 dev 用）
   await db.auditLog.deleteMany();
+  await db.apiToken.deleteMany();
   await db.conclusion.deleteMany();
   await db.mitigation.deleteMany();
   await db.risk.deleteMany();
@@ -327,9 +328,54 @@ async function main() {
     },
   });
 
-  console.log('✅ Seed 完成');
-  console.log('Org:', org.slug);
-  console.log('Project:', project.code, project.title);
+  // 9. 给 AUDIT module 一个 demo 项目（让用户看到平台感）
+  await db.piaProject.create({
+    data: {
+      organizationId: org.id,
+      assessmentType: 'AUDIT',
+      code: 'AUDIT-Q2-001',
+      title: '示例 · 子公司合规审计（Q2）',
+      scope: 'demo 数据 · 子公司业务合规检查 · 审计周期 2026 Q2',
+      purpose: '示范 AUDIT module 复用底座的能力。所有字段与 PIA module 相同 schema，UI 上按 module 翻译标签。',
+      legalBases: ['网安法', '数安法', '等保 2.0', '60 号文'],
+      startedAt: new Date('2026-04-01'),
+      targetDoneAt: new Date('2026-06-30'),
+      leaderId: owner.id,
+      reviewTriggers: '季度审计周期',
+      version: 'v0.1',
+    },
+  });
+
+  // 10. demo API Token（plaintext 仅 seed 时打出）
+  const { generateApiToken } = await import('../lib/api-auth');
+  const { plaintext, prefix, hashed } = generateApiToken();
+  await db.apiToken.create({
+    data: {
+      organizationId: org.id,
+      userId: owner.id,
+      name: 'demo · 用于本地体验 REST API & MCP',
+      prefix,
+      hashedToken: hashed,
+      scopes: ['ADMIN'],
+    },
+  });
+
+  console.log('');
+  console.log('====================================================================');
+  console.log('  Seed 完成');
+  console.log('====================================================================');
+  console.log('Org:        ', org.slug);
+  console.log('PIA Project:', project.code, project.title);
+  console.log('AUDIT demo: AUDIT-Q2-001');
+  console.log('');
+  console.log('Demo API Token (仅此一次显示，保存它来跑 REST API / MCP):');
+  console.log('  ', plaintext);
+  console.log('');
+  console.log('  REST API 健康检查:');
+  console.log('    curl http://localhost:3000/api/v1/health -H "Authorization: Bearer ' + plaintext + '"');
+  console.log('  MCP 元信息:');
+  console.log('    curl http://localhost:3000/api/mcp -H "Authorization: Bearer ' + plaintext + '"');
+  console.log('====================================================================');
 }
 
 main()

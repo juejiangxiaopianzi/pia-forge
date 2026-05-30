@@ -23,8 +23,9 @@ model Organization {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  members  Membership[]
-  projects PiaProject[]
+  members   Membership[]
+  projects  PiaProject[]
+  apiTokens ApiToken[]
 }
 
 model User {
@@ -46,6 +47,7 @@ model User {
   controlsValidated Mitigation[] @relation("ControlValidator")
   conclusionsSigned Conclusion[] @relation("ConclusionSigner")
   auditLogs    AuditLog[]
+  apiTokens    ApiToken[]
 }
 
 model Membership {
@@ -73,27 +75,30 @@ enum OrgRole {
 // ────────────────────────────────────────────────────────────────────────
 
 model PiaProject {
-  id             String   @id @default(cuid())
+  id             String         @id @default(cuid())
   organizationId String
-  code           String   // e.g. PIA-LP-001
+  /// Module / 评估类型 · 决定本评估属于哪个合规场景（PIA / AUDIT / FILING / NOTICE / INCIDENT）
+  /// 各 module 共用底层 7 张表，只在 UI 层和 prompt 层做差异化
+  assessmentType AssessmentType @default(PIA)
+  code           String         // e.g. PIA-LP-001 / AUDIT-Q2-001
   title          String
-  scope          String   @db.Text
-  purpose        String   @db.Text
-  legalBases     String[] // PIPL §55-56 / 评估办法 / GB/T 39335 等多选
+  scope          String         @db.Text
+  purpose        String         @db.Text
+  legalBases     String[]
   startedAt      DateTime
   targetDoneAt   DateTime?
   leaderId       String?
   teamUserIds    String[]
   overallVerdict OverallVerdict @default(IN_PROGRESS)
-  residualLevel  RiskLevel       @default(UNRATED)
-  reviewTriggers String   @db.Text
+  residualLevel  RiskLevel      @default(UNRATED)
+  reviewTriggers String         @db.Text
   approvalState  ApprovalState  @default(DRAFT)
   approvedAt     DateTime?
   approverId     String?
-  version        String   @default("v0.1")
-  notes          String?  @db.Text
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  version        String         @default("v0.1")
+  notes          String?        @db.Text
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   roles         PiaRole[]
@@ -105,6 +110,20 @@ model PiaProject {
   auditLogs     AuditLog[]
 
   @@unique([organizationId, code])
+}
+
+/// 评估类型 · 决定 module 路由
+/// PIA      个人信息保护影响评估（PIPL §55-56）
+/// AUDIT    合规审计（内审 / 子公司 / 外部审计）
+/// FILING   申报与备案台账（数据出境申报 / 承诺函库）
+/// NOTICE   告知与同意版本管理（隐私政策 / 弹窗版本）
+/// INCIDENT 事件响应与处置（数据事件 / 客诉 / 监管约谈）
+enum AssessmentType {
+  PIA
+  AUDIT
+  FILING
+  NOTICE
+  INCIDENT
 }
 
 enum OverallVerdict {
@@ -466,9 +485,56 @@ model AuditLog {
   resource   String   // PiaProject / Risk / Mitigation 等
   resourceId String
   action     String   // create / update / delete / sign
+  source     AuditSource @default(WEB) // 区分人 vs Agent 写入
+  agentName  String?  // Agent 自报姓名（如 Claude Code / Cursor / Custom）
   diff       String?  @db.Text // JSON diff
   createdAt  DateTime @default(now())
 
   project PiaProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   user    User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+enum AuditSource {
+  WEB         // 网页人工操作
+  REST_API    // 外部 Agent 走 REST API
+  MCP         // 外部 LLM Agent 走 MCP
+  SEED        // seed 脚本初始化
+  MIGRATION   // 数据迁移
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// API Token · 给外部 Agent / 第三方系统接入用
+// ────────────────────────────────────────────────────────────────────────
+
+model ApiToken {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String   // 这个 token 属于谁
+  name           String   // 用户起的备注，如 "我的 Claude Code"
+  prefix         String   // 显示前 8 位，方便区分（如 pia_a1b2c3d4）
+  hashedToken    String   @unique // 实际 token 的 sha256
+  scopes         TokenScope[]
+  lastUsedAt     DateTime?
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([userId])
+}
+
+enum TokenScope {
+  READ_PROJECTS
+  WRITE_PROJECTS
+  READ_RISKS
+  WRITE_RISKS
+  READ_MITIGATIONS
+  WRITE_MITIGATIONS
+  READ_CONCLUSIONS
+  WRITE_CONCLUSIONS
+  GENERATE_REPORT
+  ADMIN  // 所有权限
 }

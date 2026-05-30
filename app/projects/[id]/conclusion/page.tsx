@@ -1,12 +1,14 @@
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { RISK_LEVEL_LABEL, RISK_LEVEL_COLOR } from '@/lib/risk';
+import { labelsFor } from '@/lib/module-labels';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ConclusionPage({ params }: { params: { id: string } }) {
   const project = await db.piaProject.findUnique({ where: { id: params.id } });
   if (!project) notFound();
+  const L = labelsFor(project.assessmentType);
 
   const conclusions = await db.conclusion.findMany({
     where: { projectId: project.id },
@@ -17,8 +19,8 @@ export default async function ConclusionPage({ params }: { params: { id: string 
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs text-muted-foreground">{project.code} · 07 结论与签字</p>
-        <h1 className="mt-1 text-2xl font-semibold">评估结论</h1>
+        <p className="text-xs text-muted-foreground">{project.code} · 07 {L.conclusion.plural}</p>
+        <h1 className="mt-1 text-2xl font-semibold">{L.conclusion.plural}</h1>
       </div>
 
       {conclusions.map((c) => (

@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
+import { labelsFor } from '@/lib/module-labels';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,7 @@ const CLASS_LABEL: Record<string, { label: string; cls: string }> = {
 export default async function DataItemsPage({ params }: { params: { id: string } }) {
   const project = await db.piaProject.findUnique({ where: { id: params.id } });
   if (!project) notFound();
+  const L = labelsFor(project.assessmentType);
 
   const items = await db.dataItem.findMany({
     where: { projectId: project.id },
@@ -24,11 +26,11 @@ export default async function DataItemsPage({ params }: { params: { id: string }
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-muted-foreground">{project.code} · 03 数据流与信息项清单</p>
-          <h1 className="mt-1 text-2xl font-semibold">信息项清单</h1>
+          <p className="text-xs text-muted-foreground">{project.code} · 03 {L.dataItem.plural}</p>
+          <h1 className="mt-1 text-2xl font-semibold">{L.dataItem.plural}</h1>
         </div>
         <button className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">
-          + 新增字段
+          + 新增{L.dataItem.singular}
         </button>
       </div>
 

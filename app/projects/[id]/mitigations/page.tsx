@@ -1,12 +1,14 @@
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { riskValue, riskLevelOf, RISK_LEVEL_LABEL, RISK_LEVEL_COLOR } from '@/lib/risk';
+import { labelsFor } from '@/lib/module-labels';
 
 export const dynamic = 'force-dynamic';
 
 export default async function MitigationsPage({ params }: { params: { id: string } }) {
   const project = await db.piaProject.findUnique({ where: { id: params.id } });
   if (!project) notFound();
+  const L = labelsFor(project.assessmentType);
 
   const mitigations = await db.mitigation.findMany({
     where: { projectId: project.id },
@@ -17,8 +19,8 @@ export default async function MitigationsPage({ params }: { params: { id: string
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs text-muted-foreground">{project.code} · 06 控制措施与残余风险</p>
-        <h1 className="mt-1 text-2xl font-semibold">控制措施</h1>
+        <p className="text-xs text-muted-foreground">{project.code} · 06 {L.mitigation.plural}</p>
+        <h1 className="mt-1 text-2xl font-semibold">{L.mitigation.plural}</h1>
       </div>
 
       <div className="space-y-3">

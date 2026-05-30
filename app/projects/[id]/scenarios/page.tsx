@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
+import { labelsFor } from '@/lib/module-labels';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,7 @@ const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
 export default async function ScenariosPage({ params }: { params: { id: string } }) {
   const project = await db.piaProject.findUnique({ where: { id: params.id } });
   if (!project) notFound();
+  const L = labelsFor(project.assessmentType);
 
   const scenarios = await db.scenario.findMany({
     where: { projectId: project.id },
@@ -23,8 +25,8 @@ export default async function ScenariosPage({ params }: { params: { id: string }
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs text-muted-foreground">{project.code} · 04 出境场景清单</p>
-        <h1 className="mt-1 text-2xl font-semibold">出境场景</h1>
+        <p className="text-xs text-muted-foreground">{project.code} · 04 {L.scenario.plural}</p>
+        <h1 className="mt-1 text-2xl font-semibold">{L.scenario.plural}</h1>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">

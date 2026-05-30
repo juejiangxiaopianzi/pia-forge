@@ -1,12 +1,14 @@
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { riskValue, riskLevelOf, RISK_LEVEL_LABEL, RISK_LEVEL_COLOR } from '@/lib/risk';
+import { labelsFor } from '@/lib/module-labels';
 
 export const dynamic = 'force-dynamic';
 
 export default async function RisksPage({ params }: { params: { id: string } }) {
   const project = await db.piaProject.findUnique({ where: { id: params.id } });
   if (!project) notFound();
+  const L = labelsFor(project.assessmentType);
 
   const risks = await db.risk.findMany({
     where: { projectId: project.id },
@@ -22,11 +24,11 @@ export default async function RisksPage({ params }: { params: { id: string } }) 
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-muted-foreground">{project.code} · 05 风险登记册</p>
-          <h1 className="mt-1 text-2xl font-semibold">风险登记册</h1>
+          <p className="text-xs text-muted-foreground">{project.code} · 05 {L.risk.plural}</p>
+          <h1 className="mt-1 text-2xl font-semibold">{L.risk.plural}</h1>
         </div>
         <button className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">
-          + 新增风险
+          + 新增{L.risk.singular}
         </button>
       </div>
 
@@ -35,7 +37,7 @@ export default async function RisksPage({ params }: { params: { id: string } }) 
           <thead className="bg-gray-50 text-left text-xs uppercase tracking-wider text-muted-foreground">
             <tr>
               <th className="px-3 py-3">编号</th>
-              <th className="px-3 py-3">风险</th>
+              <th className="px-3 py-3">{L.risk.singular}</th>
               <th className="px-3 py-3">类别</th>
               <th className="px-3 py-3 text-center">可能</th>
               <th className="px-3 py-3 text-center">严重</th>

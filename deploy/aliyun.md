@@ -1,6 +1,8 @@
-# 阿里云部署指南（傻瓜版 · 给非技术管理员）
+# 阿里云部署指南（傻瓜版）
 
-> 目标：让黄越这种非技术背景的合规/产品负责人，**只买两样东西** + **跑两条命令**，就能把 PIA Forge 跑在自己的阿里云账号下。
+> 目标：让非技术背景的合规人 / 律师 / 产品负责人，**只买两样东西** + **跑五条命令**，就能把 PIA Forge 跑在自己的阿里云账号下。
+>
+> PIA Forge 不调 LLM，不联外网（除了下载依赖），数据完全在你的服务器和数据库里。
 
 ---
 
@@ -98,10 +100,12 @@ cd pia-forge
 # 3. 写环境变量
 cp .env.example .env
 nano .env
-# 把 DATABASE_URL 改成你的 RDS 连接串：
-# postgresql://pia:你的密码@rds内网地址:5432/pia_forge?schema=public
-# NEXTAUTH_URL 改成 http://你的服务器公网IP:3000
-# NEXTAUTH_SECRET 随便填一段长字符串
+# 必填：
+#   DATABASE_URL=postgresql://pia:你的密码@rds内网地址:5432/pia_forge?schema=public
+#   NEXTAUTH_URL=http://你的服务器公网IP:3000
+#   NEXTAUTH_SECRET=随便填一段长字符串（用 openssl rand -hex 32 生成更稳）
+#   API_TOKEN_SIGNING_SECRET=另一段长随机字符串
+# 注意：没有任何 LLM_API_KEY 这种东西要填 —— PIA Forge 不调 LLM
 
 # 4. 用 Docker 起来
 docker compose up -d --build
@@ -109,11 +113,32 @@ docker compose up -d --build
 # 5. 初始化数据库（首次跑一次就行）
 docker compose exec app npx prisma db push
 docker compose exec app npm run db:seed
+# ⚠️ seed 完后终端会打印一个 demo API Token，保存它！下文 Step 6 会用到
 ```
 
-### Step 5 · 验证
+### Step 6 · 把 demo Token 用起来
 
-浏览器访问 `http://你的服务器公网IP:3000`，看到 PIA Forge 首页 + 一份预填的「猎聘简历出境 PIA」demo 数据，就成了。
+Step 5 终端打印的 Token 形如 `pia_xxxxxxxx.xxxxxxxxxxxxxxxx`。立刻：
+
+1. 用 curl 探活（在你电脑上）：
+   ```bash
+   curl http://你的服务器公网IP:3000/api/v1/health \
+     -H "Authorization: Bearer pia_xxxxxxxx.xxxxxxxxxxxxxxxx"
+   ```
+2. 把它配到你的 Claude Code / Cursor 的 MCP 设置里（参考 `docs/mcp.md`）
+3. 进入网页 `http://你的服务器公网IP:3000/settings/tokens` 看到这个 Token
+
+> 这个 demo Token 是 ADMIN scope，给你自己用。**如果要给同事/外部人员用，请在网页上生成专门的 Token**（可以限定 scope，比如只读）。
+
+### Step 7 · 验证
+
+浏览器访问 `http://你的服务器公网IP:3000`，应该看到：
+- PIA Forge 首页 + Hero 区
+- 5 个 Module 卡片（PIA / Audit / Filing / Notice / Incident），PIA 显示 1，AUDIT 显示 1
+- 3 个开放接口入口（Skill / MCP / REST API）
+- 一份预填的「猎聘简历出境 PIA」demo 数据
+
+点进 PIA 项目，能看到信息项 / 风险 / 措施都已经填好。
 
 ---
 
@@ -144,3 +169,15 @@ docker compose exec app npm run db:seed
 | 5-20 人团队 | 升轻量服务器到 4C 4G；RDS 升 4C 8G |
 | 对外提供 SaaS | 换 SAE（Serverless 应用引擎）+ RDS 高可用版 + SLB；上 ALB + WAF |
 | 涉敏感数据 | 数据库加密 TDE；OSS 加 KMS 加密；ECS 内网 + 跳板机 |
+
+## ⚠️ 关于网络互通
+
+阿里云**轻量应用服务器**和 **RDS 默认不在同一个 VPC**：
+- 轻量服务器：「轻量专属网络」
+- RDS：「默认 VPC」
+
+两种解法：
+1. **简单方案**（PIA Forge 已采用）：用 RDS 的「外网连接地址」+ 在 RDS 白名单加上轻量服务器的**公网 IP**。多一点网络跳，但配置最简单。
+2. **完美方案**：在 RDS 控制台「数据库连接 → 切换专有网络」，把 RDS 切到你能控制的 VPC，然后跟轻量服务器走内网。略复杂。
+
+第一次部署用方案 1。后期想优化再切方案 2。

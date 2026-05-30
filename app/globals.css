@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ──────────────────────────────────────────────────────────────────
+ * Design Tokens
+ * 黄越回来一起敲定苹果风/Mac 风的最终视觉。
+ * 现在的色板和圆角是占位 · 你只需要改这里的 CSS 变量，全站跟着切。
+ * 苹果风建议方向：
+ *   - 减弱紫色，主色换成更克制的 system-blue 或 grayscale
+ *   - 字体走 -apple-system / SF Pro
+ *   - 圆角偏大（已 1rem 起步，可再升）
+ *   - 阴影极轻、漫反射
+ *   - 半透明 + backdrop-blur 大量用
+ * ─────────────────────────────────────────────────────────────── */
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -21,10 +33,18 @@
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 262 83% 58%;
-    --radius: 0.75rem;
+    --radius: 0.875rem;
     --risk-high: 0 72% 51%;
     --risk-mid: 38 92% 50%;
     --risk-low: 142 71% 45%;
+
+    /* Apple-style 字体栈 · 系统级 */
+    --font-sans:
+      -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
+      'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+    --font-mono:
+      'SF Mono', ui-monospace, SFMono-Regular, 'Cascadia Code', 'Roboto Mono',
+      Menlo, Consolas, monospace;
   }
 
   .dark {
@@ -44,8 +64,31 @@
   * {
     @apply border-border;
   }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: 'cv11', 'ss01';
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01', 'kern';
+    letter-spacing: -0.005em;
+  }
+  code, kbd, pre, samp {
+    font-family: var(--font-mono);
+  }
+}
+
+/* Apple-style utility classes（黄越回来一起改） */
+@layer components {
+  .card-soft {
+    @apply rounded-2xl border bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_12px_rgba(15,23,42,0.04)];
+  }
+  .surface-glass {
+    @apply bg-white/85 backdrop-blur-xl;
+  }
+  .ring-focus {
+    @apply outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100;
   }
 }

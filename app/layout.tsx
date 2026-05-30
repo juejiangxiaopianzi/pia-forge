@@ -22,8 +22,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <nav className="flex items-center gap-1 text-sm">
               <NavLink href="/projects">评估项目</NavLink>
               <NavLink href="/library">法规库</NavLink>
-              <NavLink href="/settings/tokens">API Tokens</NavLink>
-              <NavLink href="/about">关于</NavLink>
+              <NavLink href="/integrations">接入 Agent</NavLink>
+              <NavLink href="/settings">设置</NavLink>
               <a
                 href="https://github.com/juejiangxiaopianzi/pia-forge"
                 target="_blank"

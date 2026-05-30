@@ -5,6 +5,15 @@
 - Node.js >= 20
 - Docker Desktop（拉 Postgres 用）
 
+## ⚠️ npm registry 提示
+
+项目内置 `.npmrc` 指向 `https://registry.npmjs.org/`。
+
+如果你公司 mac 上的 `~/.npmrc` 配了内部镜像（比如 `registry.tongdao.cn`），项目级 `.npmrc` 会优先生效。如果遇到 DNS 解析失败，把项目 `.npmrc` 改成你能访问的镜像即可：
+
+- 阿里云 npm 镜像（推荐国内用户）：`registry=https://registry.npmmirror.com`
+- 公司内网：`registry=https://registry.your-company.cn`
+
 ## 一次性初始化
 
 ```bash

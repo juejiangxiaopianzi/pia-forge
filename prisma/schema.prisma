@@ -1,0 +1,474 @@
+// PIA Forge · Data Model
+// 设计目标：把多维表格里跑通的「7 张表」翻译成可被 Prisma 维护的关系型 schema，
+// 同时为未来通用化（多组织 / 多项目 / 评估留痕）留好结构。
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// 组织 & 用户
+// ────────────────────────────────────────────────────────────────────────
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members  Membership[]
+  projects PiaProject[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  avatarUrl    String?
+  larkOpenId   String?  @unique
+  passwordHash String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships  Membership[]
+  rolesOwned   PiaRole[]      @relation("RoleOwner")
+  itemsOwned   DataItem[]     @relation("ItemOwner")
+  scenesOwned  Scenario[]     @relation("ScenarioOwner")
+  risksFiled   Risk[]         @relation("RiskFiler")
+  controlsLed  Mitigation[]   @relation("ControlOwner")
+  controlsValidated Mitigation[] @relation("ControlValidator")
+  conclusionsSigned Conclusion[] @relation("ConclusionSigner")
+  auditLogs    AuditLog[]
+}
+
+model Membership {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  role           OrgRole  @default(MEMBER)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// 01 评估总览（PiaProject）
+// ────────────────────────────────────────────────────────────────────────
+
+model PiaProject {
+  id             String   @id @default(cuid())
+  organizationId String
+  code           String   // e.g. PIA-LP-001
+  title          String
+  scope          String   @db.Text
+  purpose        String   @db.Text
+  legalBases     String[] // PIPL §55-56 / 评估办法 / GB/T 39335 等多选
+  startedAt      DateTime
+  targetDoneAt   DateTime?
+  leaderId       String?
+  teamUserIds    String[]
+  overallVerdict OverallVerdict @default(IN_PROGRESS)
+  residualLevel  RiskLevel       @default(UNRATED)
+  reviewTriggers String   @db.Text
+  approvalState  ApprovalState  @default(DRAFT)
+  approvedAt     DateTime?
+  approverId     String?
+  version        String   @default("v0.1")
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  roles         PiaRole[]
+  dataItems     DataItem[]
+  scenarios     Scenario[]
+  risks         Risk[]
+  mitigations   Mitigation[]
+  conclusions   Conclusion[]
+  auditLogs     AuditLog[]
+
+  @@unique([organizationId, code])
+}
+
+enum OverallVerdict {
+  IN_PROGRESS
+  ACCEPTABLE
+  CONDITIONAL
+  UNACCEPTABLE
+}
+
+enum ApprovalState {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  CHANGE_REQUESTED
+}
+
+enum RiskLevel {
+  UNRATED
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// 02 角色与职责（PiaRole）
+// ────────────────────────────────────────────────────────────────────────
+
+model PiaRole {
+  id           String     @id @default(cuid())
+  projectId    String
+  roleType     RoleType
+  shortLabel   String
+  userId       String?
+  organization String?    // 部门
+  duties       String     @db.Text
+  raciFlags    RaciFlag[]
+  stages       PiaStage[]
+  deliverable  String     @db.Text
+  dueAt        DateTime?
+  status       DeliveryStatus @default(NOT_STARTED)
+  notes        String?    @db.Text
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  project PiaProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User?      @relation("RoleOwner", fields: [userId], references: [id])
+}
+
+enum RoleType {
+  PIA_LEAD
+  LEGAL_LEAD
+  C_END_PRODUCT
+  B_END_PRODUCT
+  DATA_TEAM
+  ENGINEERING
+  SECURITY_AUDIT
+  COMPLIANCE_OFFICER
+  EXEC_APPROVER
+  EXTERNAL_COUNSEL
+}
+
+enum RaciFlag {
+  R
+  A
+  C
+  I
+}
+
+enum PiaStage {
+  S0_SCOPE
+  S1_DATAFLOW
+  S2_IDENTIFY
+  S3_RATE
+  S4_MITIGATE
+  S5_REPORT
+}
+
+enum DeliveryStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  DONE
+  OVERDUE
+  BLOCKED
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// 03 数据流与信息项清单（DataItem）
+// ────────────────────────────────────────────────────────────────────────
+
+model DataItem {
+  id              String      @id @default(cuid())
+  projectId       String
+  code            String      // DI-001
+  name            String
+  techName        String?
+  classification  PiClass     @default(GENERAL)
+  sensitiveSub    SensitiveSubtype[]
+  legalBasis      LegalBasis?
+  legalReasoning  String      @db.Text
+  isOutbound      Boolean     @default(false)
+  stages          FlowStage[]
+  necessity       String      @db.Text
+  status          ComplianceStatus @default(PENDING)
+  ownerId         String?
+  notes           String?     @db.Text
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  project   PiaProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner     User?      @relation("ItemOwner", fields: [ownerId], references: [id])
+  scenarios Scenario[] @relation("DataItemScenarios")
+  risks     Risk[]     @relation("DataItemRisks")
+
+  @@unique([projectId, code])
+}
+
+enum PiClass {
+  GENERAL
+  SENSITIVE
+  NON_PI
+  DISPUTED // 存争议待裁定（典型：简历照片）
+}
+
+enum SensitiveSubtype {
+  BIOMETRIC
+  SPECIFIC_IDENTITY
+  MEDICAL_HEALTH
+  FINANCIAL
+  WHEREABOUTS
+  MINOR_UNDER_14
+  RELIGION
+  SEXUAL_ORIENTATION
+  UNDISCLOSED_CRIMINAL
+}
+
+enum LegalBasis {
+  SEPARATE_CONSENT
+  GENERAL_CONSENT
+  CONTRACT_NECESSITY
+  LEGAL_OBLIGATION
+  PUBLIC_INTEREST
+  EMERGENCY
+  PUBLIC_INFO
+  OTHER
+}
+
+enum FlowStage {
+  COLLECT
+  STORE
+  PROCESS
+  OUTBOUND
+  RECEIVER_USE
+  DELETE
+}
+
+enum ComplianceStatus {
+  COMPLIANT
+  PARTIAL
+  NON_COMPLIANT
+  PENDING
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// 04 出境场景清单（Scenario）
+// ────────────────────────────────────────────────────────────────────────
+
+model Scenario {
+  id              String      @id @default(cuid())
+  projectId       String
+  code            String      // SC-001
+  name            String
+  description     String      @db.Text
+  receiverType    ReceiverType
+  receiverRegions String      @db.Text
+  techPath        String      @db.Text
+  encryption      String      @db.Text
+  annualVolume    BigInt?
+  shareRatio      String?
+  triggerRules    String      @db.Text
+  safeguards      String      @db.Text
+  scenarioRisk    String      @db.Text
+  legalBases      LegalBasis[]
+  ownerId         String?
+  status          ComplianceStatus @default(PENDING)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  project   PiaProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner     User?      @relation("ScenarioOwner", fields: [ownerId], references: [id])
+  dataItems DataItem[] @relation("DataItemScenarios")
+  risks     Risk[]     @relation("ScenarioRisks")
+
+  @@unique([projectId, code])
+}
+
+enum ReceiverType {
+  FOREIGN_CORP_DOMESTIC
+  DOMESTIC_OVERSEAS_IP
+  TRUE_OVERSEAS
+  PLATFORM_RECOMMENDER
+  USER_DRIVEN_OVERSEAS
+  OTHER
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// 05 风险登记册（Risk）
+// ────────────────────────────────────────────────────────────────────────
+
+model Risk {
+  id              String      @id @default(cuid())
+  projectId       String
+  code            String      // R-001
+  name            String
+  category        RiskCategory
+  description     String      @db.Text
+  likelihood      Int         // 1-5
+  severity        Int         // 1-5
+  /// initial risk value = likelihood × severity (derived at read-time)
+  legalClauses    String      @db.Text
+  filerId         String?
+  identifiedAt    DateTime    @default(now())
+  strategy        RiskStrategy
+  notes           String?     @db.Text
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  project     PiaProject   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  filer       User?        @relation("RiskFiler", fields: [filerId], references: [id])
+  dataItems   DataItem[]   @relation("DataItemRisks")
+  scenarios   Scenario[]   @relation("ScenarioRisks")
+  mitigations Mitigation[]
+
+  @@unique([projectId, code])
+}
+
+enum RiskCategory {
+  LEGAL_BASIS
+  NECESSITY
+  NOTICE
+  CONSENT
+  RECEIVER
+  TECH_SECURITY
+  RIGHTS_HARM
+  CROSS_BORDER_JURISDICTION
+  DATA_QUALITY
+  TRACEABILITY
+}
+
+enum RiskStrategy {
+  MITIGATE
+  TRANSFER
+  ACCEPT
+  AVOID
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// 06 控制措施与残余风险（Mitigation）
+// ────────────────────────────────────────────────────────────────────────
+
+model Mitigation {
+  id              String      @id @default(cuid())
+  projectId       String
+  code            String      // C-001
+  riskId          String
+  name            String
+  controlType     ControlType
+  details         String      @db.Text
+  ownerId         String?
+  dueAt           DateTime?
+  status          ControlStatus @default(NOT_STARTED)
+  residualLikelihood Int?
+  residualSeverity   Int?
+  acceptable         AcceptanceLevel @default(NOT_EVALUATED)
+  acceptReason       String?  @db.Text
+  evidenceUrls       String[]
+  validatorId        String?
+  validatedAt        DateTime?
+  notes              String?  @db.Text
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  project   PiaProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  risk      Risk       @relation(fields: [riskId], references: [id], onDelete: Cascade)
+  owner     User?      @relation("ControlOwner", fields: [ownerId], references: [id])
+  validator User?      @relation("ControlValidator", fields: [validatorId], references: [id])
+
+  @@unique([projectId, code])
+}
+
+enum ControlType {
+  TECHNICAL
+  PROCESS
+  LEGAL
+  PRODUCT_UX
+  TRAINING
+  AUDIT
+}
+
+enum ControlStatus {
+  NOT_STARTED
+  DESIGNING
+  IMPLEMENTING
+  LANDED_PENDING_REVIEW
+  VALIDATED
+  OVERDUE
+}
+
+enum AcceptanceLevel {
+  ACCEPTABLE
+  CONDITIONAL
+  UNACCEPTABLE
+  NOT_EVALUATED
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// 07 结论与签字（Conclusion）
+// ────────────────────────────────────────────────────────────────────────
+
+model Conclusion {
+  id              String   @id @default(cuid())
+  projectId       String
+  title           String
+  evaluationTarget String  @db.Text
+  overallVerdict  String   @db.Text
+  residualLevel   RiskLevel
+  highRiskSummary String   @db.Text
+  businessAdvice  String   @db.Text
+  regulatorTone   String   @db.Text
+  signerId        String?
+  signerRoleLabel String?
+  signedAt        DateTime?
+  signatureUrl    String?
+  nextReviewAt    DateTime?
+  reviewTriggers  String   @db.Text
+  reviewerId      String?
+  state           ConclusionState @default(DRAFT)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  project PiaProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  signer  User?      @relation("ConclusionSigner", fields: [signerId], references: [id])
+}
+
+enum ConclusionState {
+  DRAFT
+  SIGNED
+  REVOKED
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// AuditLog — 谁动过什么字段，对监管展示用
+// ────────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  projectId  String?
+  userId     String?
+  resource   String   // PiaProject / Risk / Mitigation 等
+  resourceId String
+  action     String   // create / update / delete / sign
+  diff       String?  @db.Text // JSON diff
+  createdAt  DateTime @default(now())
+
+  project PiaProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  user    User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+}

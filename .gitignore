@@ -16,3 +16,4 @@ coverage
 public/uploads
 HANDOFF.md
 .handoff/
+tsconfig.tsbuildinfo

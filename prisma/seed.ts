@@ -10,6 +10,10 @@ const db = new PrismaClient();
 
 async function main() {
   // 0. 清理（仅 dev 用）· 新模型先删
+  await db.knowledgeIndex.deleteMany();
+  await db.citationLink.deleteMany();
+  await db.source.deleteMany();
+  await db.knowledgeBase.deleteMany();
   await db.evaluation.deleteMany();
   await db.fieldRevision.deleteMany();
   await db.agentSnapshot.deleteMany();
@@ -370,7 +374,605 @@ async function main() {
     },
   });
 
-  // 11. demo API Token，绑定到 Agent（不只是 user）
+  // 10.5 知识库 + Source · 公共知识库(法规等)和个人 KB(GitHub Private)统一两层模型
+  // ─ KnowledgeBase = 一个来源/物理位置
+  // ─ Source = 该来源下的一条具体内容(法规条款 / 文档 / 客户沟通纪要)
+  //   Source.body 是缓存的 markdown 全文,供系统内预览
+
+  // KB1 · PIPL 官方原文(公网公报)· 公共
+  const kbPipl = await db.knowledgeBase.create({
+    data: {
+      organizationId: org.id,
+      name: 'PIPL · 个人信息保护法 · 官方公报',
+      description: '国务院公报公布版本 · 公共法规 · 全员可引用',
+      type: 'URL_LIST',
+      uri: 'https://www.gov.cn/xinwen/2021-08/20/content_5632486.htm',
+      scope: 'ORG',
+      ownerUserId: owner.id,
+      syncStrategy: 'Agent skill(legal-ingest) 周期抓取',
+    },
+  });
+
+  // KB2 · 国家标准(GB/T) · 公共
+  const kbGB = await db.knowledgeBase.create({
+    data: {
+      organizationId: org.id,
+      name: '国家标准 · GB/T 系列',
+      description: '国家标准全文公开系统抓取 + 部分需购买的国标手动上传 markdown',
+      type: 'URL_LIST',
+      uri: 'https://openstd.samr.gov.cn/',
+      scope: 'ORG',
+      ownerUserId: owner.id,
+      syncStrategy: 'Agent skill 抓取 + 手动上传',
+    },
+  });
+
+  // KB3 · 数据出境评估办法 · 公共
+  const kbExport = await db.knowledgeBase.create({
+    data: {
+      organizationId: org.id,
+      name: '数据出境安全评估办法 + 配套规则',
+      description: '网信办公网 + 标准合同备案规则等',
+      type: 'URL_LIST',
+      uri: 'https://www.cac.gov.cn/',
+      scope: 'ORG',
+      ownerUserId: owner.id,
+      syncStrategy: 'Agent skill 抓取',
+    },
+  });
+
+  // KB4 · 黄越的合规知识库(GitHub Private)· 私有解读
+  const kbGithub = await db.knowledgeBase.create({
+    data: {
+      organizationId: org.id,
+      name: '黄越的合规知识库(GitHub 私有)',
+      description: 'huangyue-compliance-kb · 个人解读 + 案例 + 公司口径 · 私有 · 仅本人 Agent 可读',
+      type: 'GITHUB_REPO',
+      uri: 'juejiangxiaopianzi/huangyue-compliance-kb',
+      scope: 'PRIVATE',
+      ownerUserId: owner.id,
+      syncStrategy: '本地 Agent skill 写入后 git push',
+    },
+  });
+
+  // KB5 · 飞书部门 wiki · 团队级
+  const kbFeishu = await db.knowledgeBase.create({
+    data: {
+      organizationId: org.id,
+      name: '猎聘安全合规中心(飞书)',
+      description: '部门内部 wiki · 团队可见 · 录入飞书地址后由 PIA Forge 同步过来缓存',
+      type: 'FEISHU_SPACE',
+      uri: '7074424220893085697',
+      scope: 'TEAM',
+      ownerUserId: owner.id,
+      syncStrategy: '飞书 OAuth 同步(待接)',
+    },
+  });
+
+  // Source 数据 · 每条都带 body markdown 供系统内预览
+  const src_pipl_28 = await db.source.create({
+    data: {
+      organizationId: org.id,
+      knowledgeBaseId: kbPipl.id,
+      type: 'URL',
+      uri: 'https://www.gov.cn/xinwen/2021-08/20/content_5632486.htm#§28',
+      title: 'PIPL §28 · 敏感个人信息定义',
+      tags: ['敏感个人信息', '定义', '生物识别', '§28'],
+      body: `# 中华人民共和国个人信息保护法 §28
+
+## 第二十八条 敏感个人信息
+
+**敏感个人信息**是一旦泄露或者非法使用，容易导致自然人的人格尊严受到侵害或者人身、财产安全受到危害的个人信息，包括:
+
+- 生物识别
+- 宗教信仰
+- 特定身份
+- 医疗健康
+- 金融账户
+- 行踪轨迹
+
+等信息，以及不满十四周岁未成年人的个人信息。
+
+只有在具有特定的目的和充分的必要性，并采取严格保护措施的情形下，个人信息处理者方可处理敏感个人信息。
+
+---
+
+> 版本: 2021-11-01 施行 · 来源: 国务院公报 · 系统启动时由 Agent skill (\`legal-ingest\`) 抓取入库`,
+      excerpt: '敏感 PI 定义 + 生物识别/特定身份/医疗等子类型 + 14 岁未成年人',
+      capturedByActorType: 'AGENT',
+      capturedByAgentId: demoAgent.id,
+      scope: 'ORG',
+      projectId: null,
+    },
+  });
+
+  const src_pipl_39 = await db.source.create({
+    data: {
+      organizationId: org.id,
+      knowledgeBaseId: kbPipl.id,
+      type: 'URL',
+      uri: 'https://www.gov.cn/xinwen/2021-08/20/content_5632486.htm#§39',
+      title: 'PIPL §39 · 出境告知 + 单独同意',
+      tags: ['出境', '告知', '单独同意', '§39'],
+      body: `# PIPL §39 · 向境外提供个人信息
+
+## 第三十九条
+
+个人信息处理者向中华人民共和国境外提供个人信息的，应当**向个人告知**境外接收方的:
+
+1. 名称或者姓名
+2. 联系方式
+3. 处理目的
+4. 处理方式
+5. 个人信息的种类
+6. 个人向境外接收方行使本法规定权利的方式和程序
+
+等事项，并取得**个人的单独同意**。
+
+---
+
+## 实务影响
+
+- 出境授权弹窗必须明列接收方五要素
+- "单独同意" 不能与一般注册协议混合
+- 接收方变更需重新告知`,
+      excerpt: '出境告知五要素 + 单独同意 · 不能混入注册协议',
+      capturedByActorType: 'AGENT',
+      capturedByAgentId: demoAgent.id,
+      scope: 'ORG',
+      projectId: null,
+    },
+  });
+
+  const src_pipl_55 = await db.source.create({
+    data: {
+      organizationId: org.id,
+      knowledgeBaseId: kbPipl.id,
+      type: 'URL',
+      uri: 'https://www.gov.cn/xinwen/2021-08/20/content_5632486.htm#§55-56',
+      title: 'PIPL §55-56 · PIA 触发条件 + 内容 + 留痕 3 年',
+      tags: ['PIA', '触发条件', '留痕'],
+      body: `# PIPL §55-56 · 个人信息保护影响评估
+
+## §55 · 应当进行 PIA 的五类情形
+
+个人信息处理者有下列情形之一的，应当事前进行个人信息保护影响评估:
+
+1. 处理敏感个人信息
+2. 利用个人信息进行自动化决策
+3. 委托处理 / 共享 / 公开个人信息
+4. 向境外提供个人信息
+5. 其他对个人权益有重大影响的处理活动
+
+## §56 · PIA 内容 + 留痕 ≥ 3 年
+
+个人信息保护影响评估应当包括下列内容:
+
+- 处理目的、方式等是否合法、正当、必要
+- 对个人权益的影响及安全风险
+- 所采取的保护措施是否合法、有效并与风险程度相适应
+
+**报告和处理情况记录应当至少保存三年。**`,
+      excerpt: 'PIA 触发 5 类 + 必含 3 项 + 留痕 ≥ 3 年',
+      capturedByActorType: 'AGENT',
+      capturedByAgentId: demoAgent.id,
+      scope: 'ORG',
+      projectId: null,
+    },
+  });
+
+  const src_gb_35273 = await db.source.create({
+    data: {
+      organizationId: org.id,
+      knowledgeBaseId: kbGB.id,
+      type: 'URL',
+      uri: 'https://openstd.samr.gov.cn/bzgk/gb/newGbInfo?hcno=4568F276E0F8346EB0FBA097AA0CE05E',
+      title: 'GB/T 35273-2020 · 个人信息安全规范 · 4.5 敏感 PI',
+      tags: ['国标', '敏感 PI', '4.5b 生物识别', 'GB/T 35273'],
+      body: `# GB/T 35273-2020 · 信息安全技术 个人信息安全规范
+
+## 4.5 敏感个人信息(节选)
+
+包括以下子类型:
+
+- **4.5a** 个人财产信息
+- **4.5b** 个人健康生理信息
+- **4.5c** 个人生物识别信息 — 包括**经过技术处理得到的**个人基因、指纹、声纹、掌纹、耳廓、虹膜、面部识别**特征**等
+- **4.5d** 个人身份信息
+- **4.5e** 网络身份标识信息
+- ...
+
+## 关键边界
+
+> 「**经过技术处理得到的特征**」 — 这一限定是判断"是否构成生物识别信息"的法定要件之一。
+> 仅持有原始照片(未做特征提取/比对/向量化)不直接构成生物识别信息。`,
+      excerpt: '4.5b 生物识别 = "经技术处理得到的特征" · 仅持照片不构成',
+      capturedByActorType: 'AGENT',
+      capturedByAgentId: demoAgent.id,
+      scope: 'ORG',
+      projectId: null,
+    },
+  });
+
+  const src_gb_45574 = await db.source.create({
+    data: {
+      organizationId: org.id,
+      knowledgeBaseId: kbGB.id,
+      type: 'URL',
+      uri: 'https://openstd.samr.gov.cn/bzgk/gb/newGbInfo?hcno=GBT45574',
+      title: 'GB/T 45574-2025 · 敏感个人信息处理安全要求',
+      tags: ['国标 2025', '敏感 PI', 'GB/T 45574'],
+      body: `# GB/T 45574-2025 · 数据安全技术 敏感个人信息处理安全要求
+
+## 概述
+
+2025 年发布的新国标,针对敏感个人信息处理给出了更细化的:
+
+- 处理规则(收集、存储、使用、共享、转移、公开、删除)
+- 技术要求(分类分级、加密、脱敏、访问控制)
+- 生物识别**构成要件**的进一步细化
+
+## 关键澄清
+
+延续 GB/T 35273-2020 的「经技术处理得到的特征模板」要件,并进一步:
+
+- 明确未做特征提取的人脸照片不当然构成生物识别
+- 强调用途绑定 - 同一字段在不同场景下定性可不同
+
+---
+
+> 状态: 2025 年发布 · 取代部分 GB/T 35273 章节`,
+      excerpt: '2025 新国标 · 进一步细化敏感 PI 构成要件 · 强调用途绑定',
+      capturedByActorType: 'AGENT',
+      capturedByAgentId: demoAgent.id,
+      scope: 'ORG',
+      projectId: null,
+    },
+  });
+
+  const src_export_5 = await db.source.create({
+    data: {
+      organizationId: org.id,
+      knowledgeBaseId: kbExport.id,
+      type: 'URL',
+      uri: 'https://www.cac.gov.cn/2022-07/07/c_1658811536396503.htm#§5',
+      title: '数据出境安全评估办法 §5 · 自评估必备内容',
+      tags: ['出境', '自评估', '评估办法 §5'],
+      body: `# 数据出境安全评估办法 §5
+
+数据处理者在出境前应当开展数据出境**风险自评估**,重点评估下列事项:
+
+1. 数据出境的**合法性、正当性、必要性**
+2. 境外接收方所在国家或地区的**数据安全保护政策法规**和网络安全环境
+3. 数据出境的规模、范围、种类、敏感程度
+4. 可能对国家安全、公共利益、个人或组织合法权益的风险
+5. 与境外接收方拟订立的法律文件中是否充分约定了数据安全保护责任义务
+6. 数据出境中及出境后的环节是否存在被篡改、破坏、泄露、丢失、转移或者被非法获取、非法利用等风险
+7. 监管机构发现的其他风险
+
+---
+
+> 关键: §5(五)要求与境外接收方约定的法律文件 → 这是「应签未签外企」风险的法定依据`,
+      excerpt: '自评估 7 项 + 第五项 = 应签未签外企风险的法定依据',
+      capturedByActorType: 'AGENT',
+      capturedByAgentId: demoAgent.id,
+      scope: 'ORG',
+      projectId: null,
+    },
+  });
+
+  // 私有 KB · 解读
+  const src_interp_photo = await db.source.create({
+    data: {
+      organizationId: org.id,
+      knowledgeBaseId: kbGithub.id,
+      type: 'GITHUB_FILE',
+      uri: 'github://juejiangxiaopianzi/huangyue-compliance-kb/interpretations/pipl/§28-照片是否构成生物识别.md@c4047c3',
+      title: '【我的解读】PIPL §28 · 简历照片是否构成生物识别',
+      tags: ['解读', '案例', '简历照片', 'PIPL §28'],
+      body: `# 我对 PIPL §28 + GB/T 35273 4.5b 的统一口径
+
+## 结论
+
+**仅持有简历照片,未做特征提取/向量化/比对的,不构成生物识别信息。** 按一般 PI + 等效敏感 PI 保护措施实施即可。
+
+## 法定要件三段论
+
+1. PIPL §28 列举了生物识别为敏感 PI 子类型
+2. GB/T 35273 4.5b 限定了"**经过技术处理得到的**…特征"
+3. GB/T 45574-2025 延续要件并强调"用途绑定"
+
+## 公司当前实施口径
+
+| 字段 | 用途 | 是否生物识别 |
+|------|------|--------------|
+| 简历照片(头像) | 招聘方人工查看身份 | 否 |
+| 求职者上传的指纹打卡数据 | 排除 | 是 |
+| 视频面试录像 | 仅存档,不做特征比对 | 否 |
+| 后续若上线 AI 视频面评 | 做了情绪/表情特征向量 | **是** ⚠️ |
+
+## 反方论点(留底)
+
+- 派克汉尼汾客户 2026-05-26 主张文义解释应从宽 → 我方驳: 国标已明确要件,不应单一客户主张推翻国标
+- 监管层面: 建议启动国家级 PIA 备案获权威背书,降低单一客户反对的风险
+
+---
+
+> 解读者: 黄越 · 最后更新 2026-05-31 · 引用源: PIPL §28 / GB/T 35273 4.5b / GB/T 45574-2025`,
+      excerpt: '我对照片定性的统一口径 + 公司实施表 + 反方驳论',
+      capturedByActorType: 'AGENT',
+      capturedByAgentId: demoAgent.id,
+      scope: 'PRIVATE',
+      projectId: null,
+    },
+  });
+
+  const src_interp_outbound = await db.source.create({
+    data: {
+      organizationId: org.id,
+      knowledgeBaseId: kbGithub.id,
+      type: 'GITHUB_FILE',
+      uri: 'github://juejiangxiaopianzi/huangyue-compliance-kb/interpretations/pipl/§39-出境告知五要素工程实施.md@c4047c3',
+      title: '【我的解读】PIPL §39 · 出境告知五要素的工程实施',
+      tags: ['解读', '出境', 'PIPL §39', 'C 端弹窗'],
+      body: `# PIPL §39 五要素在 C 端弹窗的工程化口径
+
+## 五要素 vs 当前弹窗
+
+| §39 要素 | 当前实现 | 缺口 |
+|---------|---------|------|
+| 接收方名称/姓名 | ❌ 仅"境外招聘方" | 必须列具名公司 |
+| 联系方式 | ❌ 无 | 提供接收方 DPO 邮箱 |
+| 处理目的 | ✅ "招聘沟通" | OK |
+| 处理方式 | ❌ 笼统 | 须列存储+查阅+导出 |
+| 信息种类 | ⚠️ 部分 | 列具体字段名 |
+| 行使权利方式 | ❌ 无 | 接收方侧投诉/删除路径 |
+
+## 短期方案
+
+- 在统一出境弹窗里加 5 要素折叠区
+- 接收方名称从「合作企业库」实时拉
+- 单独同意按钮 vs 整体注册分开
+
+## 长期方案
+
+考虑做接收方分类: 已签承诺函企业一组 prompt,未签企业另一组(优先催签)`,
+      excerpt: '§39 五要素工程实施对照表 + 短期/长期方案',
+      capturedByActorType: 'AGENT',
+      capturedByAgentId: demoAgent.id,
+      scope: 'PRIVATE',
+      projectId: null,
+    },
+  });
+
+  // 飞书部门 wiki · 内部沟通纪要
+  const src_feishu_pkr = await db.source.create({
+    data: {
+      organizationId: org.id,
+      knowledgeBaseId: kbFeishu.id,
+      type: 'FEISHU_DOC',
+      uri: 'feishu://docx/CuKGd02KAobmVuxG9LLcxpr7nqc',
+      title: '5/26 派克汉尼汾客户沟通纪要',
+      tags: ['客户沟通', '案例', '简历照片争议'],
+      body: `# 派克汉尼汾客户沟通纪要 · 2026-05-26
+
+## 出席方
+- 客户: 派克汉尼汾(中国)法务 1 人 + 数据保护负责人 1 人
+- 我方: 黄越 + 法务 cherry + 商务对接
+
+## 客户诉求
+
+客户**单方主张**简历照片构成生物识别信息,要求平台:
+1. 修改承诺函中关于敏感 PI 的表述
+2. 单独同意流程对照片单列
+
+## 我方立场
+
+- 引用 GB/T 35273 4.5b + GB/T 45574-2025 说明法定要件
+- 同意启动国家级 PIA 备案获权威背书
+- 不接受单一客户主张推翻国标解释
+
+## 待办
+
+- [ ] 启动国家级 PIA 备案
+- [ ] 准备一份正式法律意见函
+
+> 同步到: PIA-LP-001 / R-001 简历照片定性争议`,
+      excerpt: '客户主张照片=生物识别 · 我方引国标驳论 · 启动国家级 PIA 备案',
+      capturedByActorType: 'HUMAN',
+      capturedByUserId: owner.id,
+      scope: 'TEAM',
+      projectId: project.id,
+    },
+  });
+
+  // 引用关系: R-001 → 4 个 Source
+  await db.citationLink.createMany({
+    data: [
+      {
+        fromType: 'Risk',
+        fromId: r1.id,
+        toSourceId: src_pipl_28.id,
+        citationType: 'EVIDENCE',
+        excerpt: 'PIPL §28 是敏感 PI 定义的源法条',
+        citedByActorType: 'AGENT',
+        citedByAgentId: demoAgent.id,
+      },
+      {
+        fromType: 'Risk',
+        fromId: r1.id,
+        toSourceId: src_gb_35273.id,
+        citationType: 'EVIDENCE',
+        excerpt: 'GB/T 35273 4.5b 明确"经技术处理得到的特征"要件,仅持原始照片不构成',
+        citedByActorType: 'AGENT',
+        citedByAgentId: demoAgent.id,
+      },
+      {
+        fromType: 'Risk',
+        fromId: r1.id,
+        toSourceId: src_interp_photo.id,
+        citationType: 'DERIVED_FROM',
+        excerpt: '本风险的判定逻辑直接基于我的解读口径',
+        citedByActorType: 'AGENT',
+        citedByAgentId: demoAgent.id,
+      },
+      {
+        fromType: 'Risk',
+        fromId: r1.id,
+        toSourceId: src_feishu_pkr.id,
+        citationType: 'DISCUSSED_IN',
+        excerpt: '客户提出争议的原始沟通记录',
+        citedByActorType: 'HUMAN',
+        citedByUserId: owner.id,
+      },
+    ],
+  });
+  // 11. (已并入上方 10.5 段 · 移除旧 LegalReference 模型)
+  /*
+  // 旧法规库种子(LegalReference 表已删除) · 保留注释作为历史
+  const initialLaws: Array<{
+    code: string;
+    title: string;
+    body: string;
+    source: string;
+    tags: string[];
+    applicableModules: Array<'PIA' | 'AUDIT' | 'FILING' | 'NOTICE' | 'INCIDENT'>;
+    officialUrl?: string;
+    version?: string;
+  }> = [
+    {
+      code: 'PIPL §55',
+      title: '应当进行个人信息保护影响评估的五类情形',
+      body:
+        '处理敏感个人信息；利用个人信息进行自动化决策；委托处理 / 共享 / 公开个人信息；向境外提供个人信息；其他对个人权益有重大影响的处理活动。',
+      source: 'PIPL',
+      tags: ['PIA 触发条件', '敏感个人信息', '出境', '自动化决策'],
+      applicableModules: ['PIA'],
+      version: '2021-11-01',
+      officialUrl: 'https://www.gov.cn/xinwen/2021-08/20/content_5632486.htm',
+    },
+    {
+      code: 'PIPL §56',
+      title: 'PIA 必含内容 + 留痕 ≥ 3 年',
+      body:
+        '处理目的、方式等是否合法、正当、必要；对个人权益的影响及安全风险；所采取的保护措施是否合法、有效并与风险程度相适应。报告和处理情况记录应当至少保存三年。',
+      source: 'PIPL',
+      tags: ['PIA 内容要求', '留痕', '3 年'],
+      applicableModules: ['PIA'],
+      version: '2021-11-01',
+    },
+    {
+      code: '评估办法 §5',
+      title: '数据出境安全自评估必备内容',
+      body:
+        '数据出境的合法性、正当性、必要性；境外接收方所在国家或地区的数据安全保护政策法规和网络安全环境；数据出境的规模、范围、种类、敏感程度，可能对国家安全、公共利益、个人或组织合法权益的风险等。',
+      source: '数据出境安全评估办法',
+      tags: ['出境', '自评估'],
+      applicableModules: ['FILING', 'PIA'],
+      version: '2022-09-01',
+    },
+    {
+      code: 'PIPL §28',
+      title: '敏感个人信息定义',
+      body:
+        '一旦泄露或者非法使用，容易导致自然人的人格尊严受到侵害或者人身、财产安全受到危害的个人信息，包括生物识别、宗教信仰、特定身份、医疗健康、金融账户、行踪轨迹等信息，以及不满十四周岁未成年人的个人信息。',
+      source: 'PIPL',
+      tags: ['敏感个人信息', '定义'],
+      applicableModules: ['PIA', 'NOTICE', 'AUDIT'],
+      version: '2021-11-01',
+    },
+    {
+      code: 'PIPL §39',
+      title: '向境外提供个人信息的告知 + 单独同意',
+      body:
+        '应当向个人告知境外接收方的名称或者姓名、联系方式、处理目的、处理方式、个人信息的种类以及个人向境外接收方行使本法规定权利的方式和程序等事项，并取得个人的单独同意。',
+      source: 'PIPL',
+      tags: ['出境', '告知', '单独同意'],
+      applicableModules: ['PIA', 'FILING', 'NOTICE'],
+      version: '2021-11-01',
+    },
+    {
+      code: 'GB/T 39335-2020',
+      title: '信息安全技术 个人信息安全影响评估指南',
+      body:
+        '国家标准 · PIA 方法论。包含评估范围确定、风险识别、风险分析评价、报告编写四个步骤。本系统的字段设计与此对齐。',
+      source: 'GB/T 39335',
+      tags: ['国家标准', 'PIA 方法论'],
+      applicableModules: ['PIA'],
+      version: '2020',
+    },
+    {
+      code: 'GB/T 35273-2020',
+      title: '信息安全技术 个人信息安全规范',
+      body:
+        '4.5 节明确列举敏感个人信息子类型，含生物识别信息（4.5b）。本系统的「敏感子类型」枚举来源。',
+      source: 'GB/T 35273',
+      tags: ['国家标准', '敏感子类型'],
+      applicableModules: ['PIA', 'AUDIT'],
+      version: '2020',
+    },
+    {
+      code: 'GB/T 45574-2025',
+      title: '数据安全技术 敏感个人信息处理安全要求',
+      body: '2025 年新国标，对敏感 PI 处理规则、技术要求、生物识别构成要件做出进一步细化。',
+      source: 'GB/T 45574',
+      tags: ['国家标准', '敏感 PI', '2025 新国标'],
+      applicableModules: ['PIA', 'AUDIT'],
+      version: '2025',
+    },
+  ];
+
+  // 旧 LegalReference seed 结束
+  */
+
+  // 13. 知识索引 · "Agent 知道这事在哪/找谁问"的最小路由
+  await db.knowledgeIndex.createMany({
+    data: [
+      {
+        organizationId: org.id,
+        knowledgeBaseId: kbGithub.id,
+        topic: '数据出境延期申报',
+        description: '数据出境申报相关的论证文档、口径稿、申报内容都在这',
+        pointers: JSON.stringify([
+          { type: 'KB', id: kbGithub.id, hint: '搜 docs/ 下含「出境申报」「延期」关键词' },
+          { type: 'SOURCE', id: src_export_5.id },
+          { type: 'SOURCE', id: src_pipl_39.id },
+          { type: 'SOURCE', id: src_interp_outbound.id },
+        ]),
+        ownerUserId: owner.id,
+        scope: 'PRIVATE',
+      },
+      {
+        organizationId: org.id,
+        knowledgeBaseId: kbGithub.id,
+        topic: '简历照片定性争议',
+        description: '人脸/生物识别相关的判定论证全集',
+        pointers: JSON.stringify([
+          { type: 'KB', id: kbGithub.id, hint: '搜 docs/ 下含「人脸」「生物识别」' },
+          { type: 'SOURCE', id: src_gb_35273.id },
+          { type: 'SOURCE', id: src_gb_45574.id },
+          { type: 'SOURCE', id: src_interp_photo.id },
+          { type: 'SOURCE', id: src_feishu_pkr.id },
+        ]),
+        ownerUserId: owner.id,
+        scope: 'PRIVATE',
+      },
+      {
+        organizationId: org.id,
+        topic: '应签未签外企 3,733 家清单',
+        description: '清单维护 + 6/30 红线作战计划',
+        pointers: JSON.stringify([
+          { type: 'KB', id: kbGithub.id, hint: '搜「应签未签」「3733」「6/30 红线」' },
+          { type: 'SOURCE', id: src_export_5.id },
+          { type: 'AGENT', hint: '黄越本人 + 集团法务最终拍板' },
+        ]),
+        ownerUserId: owner.id,
+        scope: 'PRIVATE',
+      },
+    ],
+  });
+
+  // 14. demo API Token，绑定到 Agent（不只是 user）
   const { generateApiToken } = await import('../lib/api-auth');
   const { plaintext, prefix, hashed } = generateApiToken();
   await db.apiToken.create({

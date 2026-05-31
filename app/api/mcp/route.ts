@@ -22,8 +22,10 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyApiToken, requireScope, type AuthContext } from '@/lib/api-auth';
 import { logAudit } from '@/lib/audit-log';
-import { resolveActor } from '@/lib/actor';
+import { resolveActor, actorToLastEditFields } from '@/lib/actor';
 import { riskValue, riskLevelOf } from '@/lib/risk';
+import { writeFieldRevisions } from '@/lib/field-revision';
+import { writeCitations } from '@/lib/citations';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,7 +79,7 @@ const TOOLS = [
   },
   {
     name: 'create_risk',
-    description: '在指定评估项目下创建风险。likelihood × severity 自动算风险等级。',
+    description: '在指定评估项目下创建风险。likelihood × severity 自动算风险等级。强烈建议同时传 reasoning(思考链)和 citations(引用源)·这两份元数据是合规留痕的核心,也是 Agent 自我迭代的原料。',
     inputSchema: {
       type: 'object',
       required: ['projectId', 'name', 'category', 'likelihood', 'severity', 'strategy'],
@@ -88,8 +90,35 @@ const TOOLS = [
         description: { type: 'string' },
         likelihood: { type: 'number', minimum: 1, maximum: 5 },
         severity: { type: 'number', minimum: 1, maximum: 5 },
-        legalClauses: { type: 'string', description: '触及法条' },
+        legalClauses: { type: 'string', description: '触及法条 · 可填多条用 ; 分隔。具体引用请走 citations 字段挂 Source。' },
         strategy: { type: 'string', enum: ['MITIGATE', 'TRANSFER', 'ACCEPT', 'AVOID'] },
+        reasoning: {
+          type: 'object',
+          description: 'Agent 的思考链 · 把"读了什么 · 考虑过的备选 · 最终选什么 · 为什么"留下来,供人后续审阅+Agent 自我训练',
+          properties: {
+            read: { type: 'array', items: { type: 'string' }, description: '本次起草前读过的文档/法规/案例' },
+            considered: { type: 'array', items: { type: 'string' }, description: '考虑过的备选判断' },
+            chose: { type: 'string', description: '最终选择' },
+            why: { type: 'string', description: '为什么这么选' },
+          },
+        },
+        citations: {
+          type: 'array',
+          description: '引用源 · 把这个风险绑定到法规/私有知识库/会议记录等具体文档,自动 upsert Source + 写 CitationLink。绑 commit sha 后老引用永不腐烂。',
+          items: {
+            type: 'object',
+            required: ['type', 'uri', 'citationType'],
+            properties: {
+              type: { type: 'string', enum: ['GITHUB_FILE', 'FEISHU_DOC', 'FEISHU_MESSAGE', 'FEISHU_WIKI', 'FEISHU_SHEET', 'FEISHU_BASE', 'EMAIL', 'FILE', 'URL', 'AGENT_MEMORY', 'EXTERNAL_API', 'OTHER'] },
+              uri: { type: 'string', description: '稳定标识 · GitHub 用 github://owner/repo/path@sha · 飞书用 feishu://docx/TOKEN 或公网 URL' },
+              title: { type: 'string' },
+              excerpt: { type: 'string', description: '抓取时的原文片段 · 防原文失效断链' },
+              citationType: { type: 'string', enum: ['EVIDENCE', 'DERIVED_FROM', 'DISCUSSED_IN', 'SIGNED_OFF_IN', 'CONTRADICTED_BY', 'REFERENCE'] },
+              citationExcerpt: { type: 'string', description: '本次引用的具体片段 · 为啥引这条' },
+              scope: { type: 'string', enum: ['PRIVATE', 'PROJECT', 'ORG'], default: 'PROJECT' },
+            },
+          },
+        },
       },
     },
   },
@@ -166,6 +195,69 @@ const TOOLS = [
       properties: {
         projectId: { type: 'string' },
         format: { type: 'string', enum: ['md', 'json'], default: 'md' },
+      },
+    },
+  },
+  {
+    name: 'list_sources',
+    description: '检索公共/团队知识库中的法规/文档(Source)。Agent 在写定性依据前应先调本工具拿对应 Source · 然后用 source uri 填到 citations payload 里。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        q: { type: 'string', description: '关键词 · 命中 title/excerpt/tags/body' },
+        knowledgeBaseId: { type: 'string', description: '只看这个知识库下的内容' },
+        scope: { type: 'string', enum: ['PRIVATE', 'PROJECT', 'TEAM', 'ORG'] },
+        tag: { type: 'string', description: '按标签过滤 · 如 「§28」「出境」' },
+      },
+    },
+  },
+  {
+    name: 'read_source',
+    description: '读取某条 Source 的全文 body(markdown)。给 Agent 用来获取上下文做判断。',
+    inputSchema: {
+      type: 'object',
+      required: ['sourceId'],
+      properties: {
+        sourceId: { type: 'string' },
+      },
+    },
+  },
+  {
+    name: 'create_source',
+    description: '向公共/私有知识库写入一条新内容。Agent 用来录入新法规、新解读、新沟通纪要。',
+    inputSchema: {
+      type: 'object',
+      required: ['type', 'uri', 'title'],
+      properties: {
+        knowledgeBaseId: { type: 'string', description: '归属哪个 KB · 可空' },
+        type: { type: 'string', enum: ['GITHUB_FILE', 'FEISHU_DOC', 'FEISHU_MESSAGE', 'FEISHU_WIKI', 'FEISHU_SHEET', 'FEISHU_BASE', 'EMAIL', 'FILE', 'URL', 'AGENT_MEMORY', 'EXTERNAL_API', 'OTHER'] },
+        uri: { type: 'string', description: '稳定标识 · GitHub 用 github://owner/repo/path@sha · URL 直接公网链接' },
+        title: { type: 'string' },
+        body: { type: 'string', description: 'markdown 全文 · 用于系统内预览' },
+        excerpt: { type: 'string', description: '简短摘要' },
+        tags: { type: 'array', items: { type: 'string' } },
+        scope: { type: 'string', enum: ['PRIVATE', 'PROJECT', 'TEAM', 'ORG'], default: 'PROJECT' },
+        projectId: { type: 'string' },
+      },
+    },
+  },
+  {
+    name: 'list_knowledge_bases',
+    description: '列出当前组织所有知识库连接(公共法规 / 团队 wiki / 私人 GitHub)。Agent 通常先调用本工具拿到 KB 列表,再按 scope 决定从哪里检索 Source。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        scope: { type: 'string', enum: ['PRIVATE', 'TEAM', 'ORG'], description: '只看某个 scope 的 KB' },
+      },
+    },
+  },
+  {
+    name: 'list_knowledge_indexes',
+    description: '检索知识索引("这事在哪/找谁问")。Agent 在面对不熟悉的主题时应先调本工具查路由，再去拉具体 Source。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        topic: { type: 'string', description: '主题关键词' },
       },
     },
   },
@@ -468,10 +560,42 @@ async function callTool(name: string, args: any, ctx: AuthContext, req: Request)
           legalClauses: args.legalClauses ?? '',
           filerId: ctx.userId,
           strategy: args.strategy,
+          ...actorToLastEditFields(actor),
         },
       });
-      await logAudit({ projectId: project.id, actor, resource: 'Risk', resourceId: r.id, action: 'create', source: 'MCP',diff: { created: r } });
-      return wrapResult({ ...r, riskValue: r.likelihood * r.severity, riskLevel: riskLevelOf(r.likelihood * r.severity) });
+
+      // FieldRevision + reasoning 链
+      const changes = ['name','category','description','likelihood','severity','legalClauses','strategy']
+        .map((f) => ({ field: f, oldValue: null, newValue: (r as any)[f] }));
+      await writeFieldRevisions({
+        projectId: project.id,
+        resource: 'Risk',
+        resourceId: r.id,
+        changes,
+        actor,
+        source: 'MCP',
+        reasoning: args.reasoning ?? null,
+      });
+
+      // citations payload → Source + CitationLink
+      const citationStats = await writeCitations(
+        {
+          organizationId: ctx.organizationId,
+          projectId: project.id,
+          resource: 'Risk',
+          resourceId: r.id,
+          actor,
+        },
+        args.citations,
+      );
+
+      await logAudit({ projectId: project.id, actor, resource: 'Risk', resourceId: r.id, action: 'create', source: 'MCP', diff: { created: r, citations: citationStats } });
+      return wrapResult({
+        ...r,
+        riskValue: r.likelihood * r.severity,
+        riskLevel: riskLevelOf(r.likelihood * r.severity),
+        citations: citationStats,
+      });
     }
 
     case 'create_mitigation': {
@@ -555,6 +679,101 @@ async function callTool(name: string, args: any, ctx: AuthContext, req: Request)
         url: reportUrl,
         format: args.format ?? 'md',
       });
+    }
+
+    case 'list_sources': {
+      requireScope(ctx, 'READ_PROJECTS');
+      const where: any = { organizationId: ctx.organizationId };
+      if (args.knowledgeBaseId) where.knowledgeBaseId = args.knowledgeBaseId;
+      if (args.scope) where.scope = args.scope;
+      if (args.tag) where.tags = { has: args.tag };
+      if (args.q) {
+        where.OR = [
+          { title: { contains: args.q, mode: 'insensitive' } },
+          { excerpt: { contains: args.q, mode: 'insensitive' } },
+          { body: { contains: args.q, mode: 'insensitive' } },
+          { tags: { has: args.q } },
+        ];
+      }
+      const items = await db.source.findMany({
+        where,
+        orderBy: [{ scope: 'asc' }, { capturedAt: 'desc' }],
+        take: 200,
+        select: { id: true, type: true, uri: true, title: true, excerpt: true, tags: true, scope: true, knowledgeBaseId: true, capturedAt: true },
+      });
+      return wrapResult({ count: items.length, items });
+    }
+
+    case 'read_source': {
+      requireScope(ctx, 'READ_PROJECTS');
+      const s = await db.source.findFirst({
+        where: { id: args.sourceId, organizationId: ctx.organizationId },
+        include: { knowledgeBase: { select: { id: true, name: true, type: true, scope: true } } },
+      });
+      if (!s) throw withCode(-32602, 'Source 不存在');
+      return wrapResult(s);
+    }
+
+    case 'create_source': {
+      requireScope(ctx, 'WRITE_PROJECTS');
+      const created = await db.source.create({
+        data: {
+          organizationId: ctx.organizationId,
+          knowledgeBaseId: args.knowledgeBaseId ?? null,
+          type: args.type,
+          uri: args.uri,
+          title: args.title,
+          body: args.body ?? null,
+          excerpt: args.excerpt ?? null,
+          tags: args.tags ?? [],
+          scope: args.scope ?? 'PROJECT',
+          projectId: args.projectId ?? null,
+          capturedByActorType: actor.type as any,
+          capturedByUserId: actor.userId,
+          capturedByAgentId: actor.agentId,
+        },
+      });
+      return wrapResult(created);
+    }
+
+    case 'list_knowledge_bases': {
+      requireScope(ctx, 'READ_PROJECTS');
+      const where: any = { organizationId: ctx.organizationId };
+      if (args.scope) where.scope = args.scope;
+      const items = await db.knowledgeBase.findMany({
+        where,
+        orderBy: [{ scope: 'asc' }, { createdAt: 'asc' }],
+        include: { _count: { select: { indexes: true } } },
+      });
+      // also count sources per KB
+      const sourceCounts = await db.source.groupBy({
+        by: ['knowledgeBaseId'],
+        where: { organizationId: ctx.organizationId },
+        _count: { _all: true },
+      });
+      const countMap = new Map(sourceCounts.map((c) => [c.knowledgeBaseId, c._count._all]));
+      return wrapResult({
+        count: items.length,
+        items: items.map((kb) => ({ ...kb, sourceCount: countMap.get(kb.id) ?? 0 })),
+      });
+    }
+
+    case 'list_knowledge_indexes': {
+      requireScope(ctx, 'READ_PROJECTS');
+      const where: any = { organizationId: ctx.organizationId };
+      if (args.topic) {
+        where.OR = [
+          { topic: { contains: args.topic, mode: 'insensitive' } },
+          { description: { contains: args.topic, mode: 'insensitive' } },
+        ];
+      }
+      const items = await db.knowledgeIndex.findMany({
+        where,
+        orderBy: [{ hitCount: 'desc' }, { updatedAt: 'desc' }],
+        take: 50,
+        include: { knowledgeBase: { select: { name: true, type: true, uri: true } } },
+      });
+      return wrapResult({ count: items.length, items });
     }
 
     default:

@@ -23,11 +23,13 @@ model Organization {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  members     Membership[]
-  projects    PiaProject[]
-  apiTokens   ApiToken[]
-  agents      Agent[]
-  evaluations Evaluation[]
+  members        Membership[]
+  projects       PiaProject[]
+  apiTokens      ApiToken[]
+  agents         Agent[]
+  evaluations    Evaluation[]
+  sources        Source[]
+  knowledgeBases KnowledgeBase[]
 }
 
 model User {
@@ -698,4 +700,190 @@ enum TokenScope {
   WRITE_CONCLUSIONS
   GENERATE_REPORT
   ADMIN // 所有权限
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Source · 外部来源指针(私有 git 库 / 飞书文档 / 群聊 / 文件 ...)
+// ────────────────────────────────────────────────────────────────────────
+// 设计原则:
+// - PIA Forge 不存原文,只存指针 + 抓取时的摘要片段
+// - 引用时绑定 commit sha / message id 等版本标识,老引用不腐烂
+// - 监管追溯时能看「引用了什么 · 当时是这样」,但看不到你私有库全文
+
+model Source {
+  id                  String      @id @default(cuid())
+  organizationId      String
+  type                SourceType
+  uri                 String // 含版本/锚点的稳定标识,如 github://repo/path@sha
+  title               String?
+  /// 抓取时的摘要片段 · 防原文失效后留痕断链
+  excerpt             String?     @db.Text
+  /// 缓存的完整正文(markdown) · 给系统内预览用 · 不强制有
+  body                String?     @db.Text
+  /// 归属哪个知识库(可空 · 比如临时引用的 URL 可以不归属)
+  knowledgeBaseId     String?
+  capturedAt          DateTime    @default(now())
+  capturedByActorType ActorType?
+  capturedByUserId    String?
+  capturedByAgentId   String?
+  scope               SourceScope @default(PROJECT)
+  /// 关联到某个评估(scope=PROJECT 时填)
+  projectId           String?
+  /// 自由标签(法规编号 / 章节号 / 业务标签)
+  tags                String[]
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  knowledgeBase KnowledgeBase? @relation(fields: [knowledgeBaseId], references: [id], onDelete: SetNull)
+  citations     CitationLink[]
+
+  @@unique([organizationId, uri])
+  @@index([organizationId])
+  @@index([type])
+  @@index([projectId])
+  @@index([knowledgeBaseId])
+}
+
+enum SourceType {
+  GITHUB_FILE // github://repo/path@sha
+  FEISHU_DOC
+  FEISHU_MESSAGE
+  FEISHU_WIKI
+  FEISHU_SHEET
+  FEISHU_BASE
+  EMAIL
+  FILE // 上传的本地文件(走 OSS)
+  URL // 公网 URL · 政府公报 / 监管原文
+  AGENT_MEMORY // Agent 自己的 memory snapshot
+  EXTERNAL_API
+  OTHER
+}
+
+enum SourceScope {
+  PRIVATE // 仅 capturedBy 可见
+  PROJECT // 挂在某个评估上
+  TEAM // 团队可见(部门 wiki / 内部沟通)
+  ORG // 全 org 可引用(法规 / 国标)
+}
+
+// CitationLink · 合规判断 → Source 的引用关系
+model CitationLink {
+  id               String       @id @default(cuid())
+  /// 引用方:Risk / DataItem / Mitigation / Conclusion / PiaProject
+  fromType         String
+  fromId           String
+  toSourceId       String
+  citationType     CitationType
+  /// 引用时的具体片段 · 为啥引这个
+  excerpt          String?      @db.Text
+  citedByActorType ActorType
+  citedByUserId    String?
+  citedByAgentId   String?
+  citedAt          DateTime     @default(now())
+
+  source Source @relation(fields: [toSourceId], references: [id], onDelete: Cascade)
+
+  @@index([fromType, fromId])
+  @@index([toSourceId])
+}
+
+enum CitationType {
+  EVIDENCE // 这是判断的依据
+  DERIVED_FROM // 这是经过此源讨论后产出
+  DISCUSSED_IN // 在这里被讨论过
+  SIGNED_OFF_IN // 在这里签字
+  CONTRADICTED_BY // 这跟我的判断冲突
+  REFERENCE // 一般性参考
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// KnowledgeBase · 知识库连接配置
+// ────────────────────────────────────────────────────────────────────────
+// 公共/个人知识库的「物理位置」配置
+// 不存内容,只存「在哪里」+「怎么访问」
+// 内容仍在 GitHub / 飞书 / 文件系统等原始位置
+
+model KnowledgeBase {
+  id             String             @id @default(cuid())
+  organizationId String
+  name           String // "黄越的合规知识库"
+  description    String?            @db.Text
+  type           KnowledgeBaseType
+  /// 物理位置标识
+  /// GITHUB_REPO: "juejiangxiaopianzi/huangyue-compliance-kb"
+  /// FEISHU_SPACE: "7074424220893085697"
+  /// LOCAL_DIR: "/Users/xx/knowledge"
+  /// URL: "https://..."
+  uri            String
+  scope          KnowledgeBaseScope @default(PRIVATE)
+  /// 所有者 user · scope=PRIVATE 时仅这个人能读
+  ownerUserId    String?
+  /// 最近一次同步时间
+  lastSyncedAt   DateTime?
+  /// 同步策略(预留 v0.2)
+  syncStrategy   String?            @default("manual")
+  /// 是否激活
+  isActive       Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  indexes      KnowledgeIndex[]
+  Source       Source[]
+
+  @@index([organizationId])
+  @@index([ownerUserId])
+}
+
+enum KnowledgeBaseType {
+  GITHUB_REPO // 私有 git repo (黄越的 huangyue-compliance-kb 这种)
+  FEISHU_SPACE // 飞书知识空间
+  FEISHU_WIKI // 飞书 wiki(更细)
+  LOCAL_DIR // 本地目录(用户自己维护)
+  NOTION
+  OBSIDIAN
+  URL_LIST // 一组公网 URL
+  OTHER
+}
+
+enum KnowledgeBaseScope {
+  PRIVATE // 仅 owner 可见(个人知识库)
+  TEAM // 团队可见
+  ORG // 全 org 可见(公共知识库)
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// KnowledgeIndex · 索引一等公民
+// ────────────────────────────────────────────────────────────────────────
+// "Agent 知道这事在哪/找谁问"
+// 每条索引 = 一个查询关键词 → 一个/多个指向
+//   - 指向 Source(具体文档/消息)
+//   - 指向 LegalReference(法规)
+//   - 指向 另一个 Agent("问王某某的 Agent")
+
+model KnowledgeIndex {
+  id              String             @id @default(cuid())
+  organizationId  String
+  knowledgeBaseId String? // 属于哪个知识库(可空,表示独立索引)
+  /// 查询关键词 / 主题
+  topic           String
+  /// 索引描述 · "数据出境相关判断在 XX 文档"
+  description     String?            @db.Text
+  /// 指向哪里(多对一)
+  /// 用 JSON 数组存指针: [{type:"SOURCE", id:"xxx"}, {type:"LEGAL", id:"xxx"}, {type:"AGENT", id:"xxx"}]
+  pointers        String             @db.Text
+  /// 维护者(谁建的这条索引)
+  ownerUserId     String?
+  ownerAgentId    String?
+  scope           KnowledgeBaseScope @default(PRIVATE)
+  hitCount        Int                @default(0)
+  lastHitAt       DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  knowledgeBase KnowledgeBase? @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([ownerUserId])
+  @@index([ownerAgentId])
+  @@index([topic])
 }

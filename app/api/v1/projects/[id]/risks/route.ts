@@ -5,6 +5,7 @@ import { logAudit } from '@/lib/audit-log';
 import { riskValue, riskLevelOf } from '@/lib/risk';
 import { resolveActor, actorToLastEditFields } from '@/lib/actor';
 import { writeFieldRevisions, type ReasoningPayload } from '@/lib/field-revision';
+import { writeCitations, type CitationInput } from '@/lib/citations';
 
 export const dynamic = 'force-dynamic';
 
@@ -91,6 +92,18 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     reasoning: reasoning ?? null,
   });
 
+  // 引用源(citations) · 串到 Source + CitationLink
+  const citationStats = await writeCitations(
+    {
+      organizationId: ctx.organizationId,
+      projectId: project.id,
+      resource: 'Risk',
+      resourceId: risk.id,
+      actor,
+    },
+    body.citations as CitationInput[] | undefined,
+  );
+
   await logAudit({
     projectId: project.id,
     actor,
@@ -98,12 +111,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     resourceId: risk.id,
     action: 'create',
     source: actor.type === 'AGENT' ? 'REST_API' : 'WEB',
-    diff: { created: risk },
+    diff: { created: risk, citations: citationStats },
   });
 
   return created({
     ...risk,
     riskValue: risk.likelihood * risk.severity,
     riskLevel: riskLevelOf(risk.likelihood * risk.severity),
+    citations: citationStats,
   });
 }

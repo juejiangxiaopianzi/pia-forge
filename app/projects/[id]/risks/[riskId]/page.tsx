@@ -3,6 +3,40 @@ import Link from 'next/link';
 import { db } from '@/lib/db';
 import { riskValue, riskLevelOf, RISK_LEVEL_LABEL, RISK_LEVEL_COLOR } from '@/lib/risk';
 import { labelsFor } from '@/lib/module-labels';
+import { sourceUriToHref } from '@/lib/citations';
+
+const CITATION_TYPE_LABEL: Record<string, string> = {
+  EVIDENCE: '判断依据',
+  DERIVED_FROM: '产出自',
+  DISCUSSED_IN: '讨论于',
+  SIGNED_OFF_IN: '签字于',
+  CONTRADICTED_BY: '冲突来源',
+  REFERENCE: '一般参考',
+};
+
+const CITATION_TYPE_COLOR: Record<string, string> = {
+  EVIDENCE: 'chip-blue',
+  DERIVED_FROM: 'chip-green',
+  DISCUSSED_IN: 'chip',
+  SIGNED_OFF_IN: 'chip-green',
+  CONTRADICTED_BY: 'chip-red',
+  REFERENCE: 'chip',
+};
+
+const SOURCE_TYPE_LABEL: Record<string, string> = {
+  GITHUB_FILE: 'GitHub',
+  FEISHU_DOC: '飞书文档',
+  FEISHU_MESSAGE: '飞书消息',
+  FEISHU_WIKI: '飞书 Wiki',
+  FEISHU_SHEET: '飞书表格',
+  FEISHU_BASE: '飞书多维表',
+  EMAIL: '邮件',
+  FILE: '上传文件',
+  URL: '公网 URL',
+  AGENT_MEMORY: 'Agent 记忆',
+  EXTERNAL_API: '外部 API',
+  OTHER: '其他',
+};
 
 export const dynamic = 'force-dynamic';
 
@@ -48,6 +82,23 @@ export default async function RiskDetailPage({
     where: { resource: 'Risk', resourceId: risk.id },
     orderBy: { createdAt: 'desc' },
   });
+
+  // 引用源(CitationLink + Source)
+  const citationLinks = await db.citationLink.findMany({
+    where: { fromType: 'Risk', fromId: risk.id },
+    orderBy: { citedAt: 'desc' },
+    include: { source: true },
+  });
+  const citedAgentIds = Array.from(new Set(citationLinks.map((c) => c.citedByAgentId).filter(Boolean))) as string[];
+  const citedUserIds = Array.from(new Set(citationLinks.map((c) => c.citedByUserId).filter(Boolean))) as string[];
+  const citedAgents = citedAgentIds.length
+    ? await db.agent.findMany({ where: { id: { in: citedAgentIds } }, select: { id: true, displayName: true } })
+    : [];
+  const citedUsers = citedUserIds.length
+    ? await db.user.findMany({ where: { id: { in: citedUserIds } }, select: { id: true, name: true } })
+    : [];
+  const citedAgentMap = new Map(citedAgents.map((a) => [a.id, a]));
+  const citedUserMap = new Map(citedUsers.map((u) => [u.id, u]));
 
   // 反查所有 actor
   const allAgentIds = Array.from(
@@ -186,6 +237,67 @@ export default async function RiskDetailPage({
           </dl>
         </section>
       )}
+
+      {/* 引用源 · CitationLink */}
+      <section className="card-soft p-6">
+        <div className="flex items-center gap-2">
+          <h2 className="text-[15px] font-semibold">引用源</h2>
+          <span className="chip-blue">{citationLinks.length}</span>
+        </div>
+        <p className="mt-1 text-[11px] text-slate-500">
+          这条风险背后的「证据」「论证文档」「相关讨论」「签字记录」。引用都绑了稳定标识(commit SHA / 消息 id)，原文失效后摘录留底。
+        </p>
+        {citationLinks.length === 0 && (
+          <p className="mt-4 text-[12px] text-slate-400">还没有引用源。Agent 在 MCP create_risk 时可传 citations[] · 人在网页编辑时也可手动加。</p>
+        )}
+        <div className="mt-4 space-y-3">
+          {citationLinks.map((cl) => {
+            const { href, label } = sourceUriToHref(cl.source.type, cl.source.uri);
+            const editor =
+              cl.citedByActorType === 'AGENT' && cl.citedByAgentId
+                ? `🤖 ${citedAgentMap.get(cl.citedByAgentId)?.displayName ?? 'Agent'}`
+                : cl.citedByActorType === 'HUMAN' && cl.citedByUserId
+                  ? `👤 ${citedUserMap.get(cl.citedByUserId)?.name ?? '人类'}`
+                  : '—';
+            return (
+              <article key={cl.id} className="rounded-xl border border-slate-100 bg-white/60 p-4">
+                <header className="flex flex-wrap items-center gap-2">
+                  <span className={CITATION_TYPE_COLOR[cl.citationType] ?? 'chip'}>{CITATION_TYPE_LABEL[cl.citationType] ?? cl.citationType}</span>
+                  <span className="chip text-[10px]">{SOURCE_TYPE_LABEL[cl.source.type] ?? cl.source.type}</span>
+                  <h3 className="text-[13px] font-semibold text-slate-900">
+                    {cl.source.title || cl.source.uri}
+                  </h3>
+                  {href && href !== '#' && (
+                    <a href={href} target="_blank" rel="noreferrer" className="ml-auto text-[11px] text-blue-600 hover:underline">
+                      打开 {label} ↗
+                    </a>
+                  )}
+                </header>
+                {cl.excerpt && (
+                  <p className="mt-2 rounded-lg bg-blue-50/40 p-3 text-[12px] leading-relaxed text-slate-700">
+                    「{cl.excerpt}」
+                  </p>
+                )}
+                {cl.source.excerpt && cl.source.excerpt !== cl.excerpt && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-[11px] text-slate-500">展开原文摘录(抓取时片段)</summary>
+                    <p className="mt-1 rounded-lg bg-slate-50/60 p-3 text-[11px] leading-relaxed text-slate-500">
+                      {cl.source.excerpt}
+                    </p>
+                  </details>
+                )}
+                <footer className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-slate-400">
+                  <span className="font-mono">{cl.source.uri}</span>
+                  <span>·</span>
+                  <span>{editor}</span>
+                  <span>·</span>
+                  <span>{cl.citedAt.toLocaleString('zh-CN')}</span>
+                </footer>
+              </article>
+            );
+          })}
+        </div>
+      </section>
 
       {/* 字段修订流水 */}
       <section className="card-soft p-6">

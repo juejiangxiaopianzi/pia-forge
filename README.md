@@ -58,6 +58,25 @@ PIA Forge 走第三条路：**做底座，不抢 Agent**。
 
 5 个 module 共用同一套底座（评估对象 + 角色 + 风险 + 措施 + 签字 + 留痕），只在 UI 与 prompt 上差异化。
 
+### 4 层知识 / 记忆体系
+
+合规人最珍贵的资产是「判断逻辑 + 论证链」。PIA Forge 不试图把它们全装进自己的数据库，而是设计了 4 层关系（运行时打开 `/architecture` 可看可视化版本）：
+
+```
+L1 · 操作层    PIA Forge              评估过程 / 风险 / 措施 / 结论 / 思考链 / 引用关系
+                  ↓ 通过 CitationLink 绑定 commit SHA
+L2 · 公共层    法规库 + 知识索引       本系统内 · 跨评估复用 · 人和 Agent 共同维护
+                  ↓ 只存指针 + 摘录 + SHA
+L3 · 私有层    GitHub Private + 飞书   原始论证 / 判例 / 内审记录 · 永远是你的私有资产
+                  ↓ 按需读取 + 摘录
+L4 · 记忆层    Agent 自己的工作记忆    Skill / system prompt / 本次任务上下文
+```
+
+三条不可让步的边界:
+- **PIA Forge 不带 LLM** — 你用你信任的 Agent，本系统只做数据底座 + 开放接口
+- **私有知识不进本系统数据库** — 原文留在 L3，本系统只存指针 + 摘录 + commit SHA · 不被 SaaS 绑架
+- **每次写入都要留下 Actor 身份** — 人 vs Agent · 谁写的 / 为什么这么写 / 都可独立评估
+
 ### 三层开放接口
 
 #### ① Skill Pack ·  挂到你的 Agent 上
@@ -108,16 +127,23 @@ npm run dev
 ### 数据模型
 
 ```
-Organization ─ Membership ─ User ─ ApiToken
+Organization ─ Membership ─ User ─ ApiToken ─ Agent (一等公民 + AgentSnapshot 版本化)
        │
-       └─ PiaProject (评估项目, type ∈ {PIA, AUDIT, FILING, NOTICE, INCIDENT})
-            ├─ PiaRole       (角色 RACI)
-            ├─ DataItem      (信息项 / 控制项)
-            ├─ Scenario      (出境场景 / 业务流程)
-            ├─ Risk          (风险 / 审计发现) ───┐
-            ├─ Mitigation    (控制措施 / 整改项)──┘
-            ├─ Conclusion    (结论 / 审计意见)
-            └─ AuditLog      (全量变更留痕)
+       ├─ PiaProject (评估项目, type ∈ {PIA, AUDIT, FILING, NOTICE, INCIDENT})
+       │     ├─ PiaRole       (角色 RACI)
+       │     ├─ DataItem      (信息项 / 控制项)
+       │     ├─ Scenario      (出境场景 / 业务流程)
+       │     ├─ Risk          (风险 / 审计发现) ───┐
+       │     ├─ Mitigation    (控制措施 / 整改项)──┘
+       │     ├─ Conclusion    (结论 / 审计意见)
+       │     ├─ AuditLog      (全量变更留痕 · Actor 标识)
+       │     └─ FieldRevision (字段级历史 + Agent 思考链)
+       │
+       ├─ LegalReference  (法规库一等公民 · 官方 + 公司内部规章)
+       ├─ KnowledgeBase   (外部知识库连接配置 · GitHub Private / 飞书 / 本地)
+       ├─ KnowledgeIndex  (路由层 · 这事在哪 / 找谁问)
+       ├─ Source          (引用源指针 · type + uri + sha + excerpt)
+       └─ CitationLink    (评估对象 ↔ Source 的多对多 · 含 EVIDENCE/DERIVED_FROM 等类型)
 ```
 
 详见 [`prisma/schema.prisma`](prisma/schema.prisma) 和 [`docs/architecture.md`](docs/architecture.md)。
@@ -125,6 +151,8 @@ Organization ─ Membership ─ User ─ ApiToken
 ### Roadmap
 
 - [x] v0.1 PIA module · 数据模型 + REST API + MCP Server + Skill Pack + Markdown 报告
+- [x] v0.1.1 Agent 一等公民 · FieldRevision 字段级历史 · 思考链留痕
+- [x] v0.1.2 法规库实体化 · KnowledgeBase 连接配置 · KnowledgeIndex 路由层 · 4 层知识体系架构页
 - [ ] v0.2 AUDIT module · 复用底座 + 审计专用 prompt
 - [ ] v0.3 FILING module · 申报 / 承诺函台账
 - [ ] v0.4 NOTICE module · 隐私政策版本管理

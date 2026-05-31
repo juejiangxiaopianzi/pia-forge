@@ -21,6 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <nav className="flex items-center gap-0.5 text-[13px]">
               <NavLink href="/projects">评估</NavLink>
               <NavLink href="/library">法规库</NavLink>
+              <NavLink href="/architecture">架构</NavLink>
               <NavLink href="/integrations">接入 Agent</NavLink>
               <NavLink href="/settings">设置</NavLink>
               <a

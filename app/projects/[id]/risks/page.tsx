@@ -21,6 +21,18 @@ export default async function RisksPage({ params }: { params: { id: string } }) 
     },
   });
 
+  // 反查最后编辑的 Agent 信息
+  const agentIds = Array.from(new Set(risks.map((r) => r.lastEditAgentId).filter(Boolean))) as string[];
+  const userIds = Array.from(new Set(risks.map((r) => r.lastEditUserId).filter(Boolean))) as string[];
+  const agents = agentIds.length
+    ? await db.agent.findMany({ where: { id: { in: agentIds } }, include: { owner: { select: { name: true } } } })
+    : [];
+  const users = userIds.length
+    ? await db.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } })
+    : [];
+  const agentMap = new Map(agents.map((a) => [a.id, a]));
+  const userMap = new Map(users.map((u) => [u.id, u]));
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -46,6 +58,7 @@ export default async function RisksPage({ params }: { params: { id: string } }) 
               <th className="px-3 py-3">等级</th>
               <th className="px-3 py-3">处置</th>
               <th className="px-3 py-3">措施</th>
+              <th className="px-3 py-3">由谁编辑</th>
             </tr>
           </thead>
           <tbody>
@@ -53,10 +66,16 @@ export default async function RisksPage({ params }: { params: { id: string } }) 
               const v = riskValue(r.likelihood, r.severity);
               const lv = riskLevelOf(v);
               return (
-                <tr key={r.id} className="border-t align-top hover:bg-gray-50">
-                  <td className="px-3 py-3 font-mono text-xs">{r.code}</td>
+                <tr key={r.id} className="border-t align-top hover:bg-blue-50/30">
+                  <td className="px-3 py-3 font-mono text-xs">
+                    <Link href={`/projects/${project.id}/risks/${r.id}`} className="text-blue-600 hover:underline">
+                      {r.code}
+                    </Link>
+                  </td>
                   <td className="px-3 py-3">
-                    <p className="font-medium">{r.name}</p>
+                    <Link href={`/projects/${project.id}/risks/${r.id}`} className="font-medium text-slate-900 hover:text-blue-600">
+                      {r.name}
+                    </Link>
                     <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{r.description}</p>
                     {(r.dataItems.length > 0 || r.scenarios.length > 0) && (
                       <p className="mt-1 text-[10px] text-muted-foreground">
@@ -79,6 +98,19 @@ export default async function RisksPage({ params }: { params: { id: string } }) 
                       r.mitigations.map((m) => (
                         <div key={m.id} className="text-muted-foreground">{m.code}</div>
                       ))
+                    )}
+                  </td>
+                  <td className="px-3 py-3 text-xs">
+                    {r.lastEditActorType === 'AGENT' && r.lastEditAgentId ? (
+                      <span className="chip-blue">
+                        🤖 {agentMap.get(r.lastEditAgentId)?.displayName ?? 'Agent'}
+                      </span>
+                    ) : r.lastEditActorType === 'HUMAN' && r.lastEditUserId ? (
+                      <span className="chip">
+                        👤 {userMap.get(r.lastEditUserId)?.name ?? '人类'}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">—</span>
                     )}
                   </td>
                 </tr>

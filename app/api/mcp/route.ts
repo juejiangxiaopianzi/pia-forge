@@ -22,6 +22,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyApiToken, requireScope, type AuthContext } from '@/lib/api-auth';
 import { logAudit } from '@/lib/audit-log';
+import { resolveActor } from '@/lib/actor';
 import { riskValue, riskLevelOf } from '@/lib/risk';
 
 export const dynamic = 'force-dynamic';
@@ -384,7 +385,7 @@ async function dispatch(method: string, params: any, ctx: AuthContext, req: Requ
 }
 
 async function callTool(name: string, args: any, ctx: AuthContext, req: Request): Promise<any> {
-  const agentName = req.headers.get('x-agent-name') ?? 'mcp-client';
+  const actor = await resolveActor(ctx, req.headers);
 
   switch (name) {
     case 'list_projects': {
@@ -428,7 +429,7 @@ async function callTool(name: string, args: any, ctx: AuthContext, req: Request)
           reviewTriggers: args.reviewTriggers ?? '',
         },
       });
-      await logAudit({ projectId: project.id, userId: ctx.userId, resource: 'PiaProject', resourceId: project.id, action: 'create', source: 'MCP', agentName, diff: { created: project } });
+      await logAudit({ projectId: project.id, actor, resource: 'PiaProject', resourceId: project.id, action: 'create', source: 'MCP',diff: { created: project } });
       return wrapResult(project);
     }
 
@@ -469,7 +470,7 @@ async function callTool(name: string, args: any, ctx: AuthContext, req: Request)
           strategy: args.strategy,
         },
       });
-      await logAudit({ projectId: project.id, userId: ctx.userId, resource: 'Risk', resourceId: r.id, action: 'create', source: 'MCP', agentName, diff: { created: r } });
+      await logAudit({ projectId: project.id, actor, resource: 'Risk', resourceId: r.id, action: 'create', source: 'MCP',diff: { created: r } });
       return wrapResult({ ...r, riskValue: r.likelihood * r.severity, riskLevel: riskLevelOf(r.likelihood * r.severity) });
     }
 
@@ -494,7 +495,7 @@ async function callTool(name: string, args: any, ctx: AuthContext, req: Request)
           acceptReason: args.acceptReason ?? null,
         },
       });
-      await logAudit({ projectId: project.id, userId: ctx.userId, resource: 'Mitigation', resourceId: m.id, action: 'create', source: 'MCP', agentName, diff: { created: m } });
+      await logAudit({ projectId: project.id, actor, resource: 'Mitigation', resourceId: m.id, action: 'create', source: 'MCP',diff: { created: m } });
       return wrapResult(m);
     }
 
@@ -517,7 +518,7 @@ async function callTool(name: string, args: any, ctx: AuthContext, req: Request)
           ownerId: ctx.userId,
         },
       });
-      await logAudit({ projectId: project.id, userId: ctx.userId, resource: 'DataItem', resourceId: d.id, action: 'create', source: 'MCP', agentName, diff: { created: d } });
+      await logAudit({ projectId: project.id, actor, resource: 'DataItem', resourceId: d.id, action: 'create', source: 'MCP',diff: { created: d } });
       return wrapResult(d);
     }
 
@@ -541,7 +542,7 @@ async function callTool(name: string, args: any, ctx: AuthContext, req: Request)
           state: 'DRAFT',
         },
       });
-      await logAudit({ projectId: project.id, userId: ctx.userId, resource: 'Conclusion', resourceId: c.id, action: 'create', source: 'MCP', agentName, diff: { created: c } });
+      await logAudit({ projectId: project.id, actor, resource: 'Conclusion', resourceId: c.id, action: 'create', source: 'MCP',diff: { created: c } });
       return wrapResult(c);
     }
 

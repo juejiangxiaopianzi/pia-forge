@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { verifyApiToken, requireScope } from '@/lib/api-auth';
 import { ok, created, errUnauthorized, errBadRequest, errNotFound, errServer } from '@/lib/api-response';
 import { logAudit } from '@/lib/audit-log';
+import { resolveActor } from '@/lib/actor';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,14 +61,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     },
   });
 
+  const actor = await resolveActor(ctx, req.headers);
   await logAudit({
     projectId: project.id,
-    userId: ctx.userId,
+    actor,
     resource: 'Scenario',
     resourceId: sc.id,
     action: 'create',
-    source: 'REST_API',
-    agentName: req.headers.get('x-agent-name'),
+    source: actor.type === 'AGENT' ? 'REST_API' : 'WEB',
     diff: { created: { ...sc, annualVolume: sc.annualVolume?.toString() } },
   });
 

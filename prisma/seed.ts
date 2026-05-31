@@ -9,9 +9,13 @@ import { PrismaClient } from '@prisma/client';
 const db = new PrismaClient();
 
 async function main() {
-  // 0. 清理（仅 dev 用）
-  await db.auditLog.deleteMany();
+  // 0. 清理（仅 dev 用）· 新模型先删
+  await db.evaluation.deleteMany();
+  await db.fieldRevision.deleteMany();
+  await db.agentSnapshot.deleteMany();
   await db.apiToken.deleteMany();
+  await db.agent.deleteMany();
+  await db.auditLog.deleteMany();
   await db.conclusion.deleteMany();
   await db.mitigation.deleteMany();
   await db.risk.deleteMany();
@@ -346,14 +350,35 @@ async function main() {
     },
   });
 
-  // 10. demo API Token（plaintext 仅 seed 时打出）
+  // 10. demo Agent（黄越的 Claude Code）· 系统颁发身份
+  const demoAgent = await db.agent.create({
+    data: {
+      organizationId: org.id,
+      ownerId: owner.id,
+      displayName: '黄越的 Claude Code',
+      description: '用于 PIA 风险起草、合规判断辅助。装了 pia-forge skill pack。',
+      status: 'ACTIVE',
+    },
+  });
+
+  // demo Agent 的初始 snapshot
+  await db.agentSnapshot.create({
+    data: {
+      agentId: demoAgent.id,
+      version: 'v1.0',
+      changeNotes: '首版 · prompt 自 skills/pia-forge/SKILL.md · 模型 claude-sonnet-4.6',
+    },
+  });
+
+  // 11. demo API Token，绑定到 Agent（不只是 user）
   const { generateApiToken } = await import('../lib/api-auth');
   const { plaintext, prefix, hashed } = generateApiToken();
   await db.apiToken.create({
     data: {
       organizationId: org.id,
       userId: owner.id,
-      name: 'demo · 用于本地体验 REST API & MCP',
+      agentId: demoAgent.id,
+      name: 'demo · 给黄越的 Claude Code 用',
       prefix,
       hashedToken: hashed,
       scopes: ['ADMIN'],
@@ -368,7 +393,10 @@ async function main() {
   console.log('PIA Project:', project.code, project.title);
   console.log('AUDIT demo: AUDIT-Q2-001');
   console.log('');
-  console.log('Demo API Token (仅此一次显示，保存它来跑 REST API / MCP):');
+  console.log('Demo Agent (系统颁发的身份码):');
+  console.log('  ', demoAgent.id, '·', demoAgent.displayName);
+  console.log('');
+  console.log('Demo API Token (绑定到上面 Agent · 仅此一次显示):');
   console.log('  ', plaintext);
   console.log('');
   console.log('  REST API 健康检查:');

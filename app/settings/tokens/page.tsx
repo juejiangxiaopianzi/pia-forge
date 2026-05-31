@@ -19,6 +19,7 @@ async function createToken(formData: FormData): Promise<{ plaintext?: string }> 
   const name = String(formData.get('name') || '').trim() || '未命名 Token';
   const scopeStr = String(formData.get('scopes') || 'ADMIN');
   const scopes = scopeStr.split(',').filter(Boolean) as TokenScope[];
+  const agentId = String(formData.get('agentId') || '') || null;
 
   const org = await db.organization.findFirst();
   const user = await db.user.findFirst();
@@ -29,6 +30,7 @@ async function createToken(formData: FormData): Promise<{ plaintext?: string }> 
     data: {
       organizationId: org.id,
       userId: user.id,
+      agentId,
       name,
       prefix,
       hashedToken: hashed,
@@ -52,7 +54,17 @@ export default async function TokensPage({ searchParams }: { searchParams: { new
     ? await db.apiToken.findMany({
         where: { organizationId: org.id },
         orderBy: { createdAt: 'desc' },
-        include: { user: { select: { name: true, email: true } } },
+        include: {
+          user: { select: { name: true, email: true } },
+          agent: { select: { id: true, displayName: true, status: true } },
+        },
+      })
+    : [];
+  const agents = org
+    ? await db.agent.findMany({
+        where: { organizationId: org.id, status: 'ACTIVE' },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, displayName: true },
       })
     : [];
 
@@ -100,13 +112,27 @@ export default async function TokensPage({ searchParams }: { searchParams: { new
           </label>
 
           <label className="block text-sm">
+            <span className="block font-medium">绑定到 Agent <span className="text-slate-400 text-xs">（强烈推荐）</span></span>
+            <select name="agentId" defaultValue="" className="ring-focus mt-1.5 w-full rounded-xl border bg-white px-3 py-2 text-sm">
+              <option value="">— 不绑定 Agent · 视为人类用户 —</option>
+              {agents.map((a) => (
+                <option key={a.id} value={a.id}>{a.displayName}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-[11px] text-slate-500">
+              绑定 Agent 后,所有用这个 Token 的写入都会被标记为该 Agent 的工作。
+              没绑定时,系统视为人类用户用此 Token 操作。
+            </p>
+          </label>
+
+          <label className="block text-sm">
             <span className="block font-medium">Scopes（逗号分隔）</span>
             <input
               name="scopes"
               defaultValue="ADMIN"
-              className="mt-1.5 w-full rounded-lg border bg-white px-3 py-2 font-mono text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="ring-focus mt-1.5 w-full rounded-xl border bg-white px-3 py-2 font-mono text-xs"
             />
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-[11px] text-slate-500">
               可用：{ALL_SCOPES.join(' · ')}
             </p>
           </label>
@@ -127,6 +153,7 @@ export default async function TokensPage({ searchParams }: { searchParams: { new
             <thead className="bg-gray-50 text-left text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="px-3 py-3">名称</th>
+                <th className="px-3 py-3">绑定 Agent</th>
                 <th className="px-3 py-3">Prefix</th>
                 <th className="px-3 py-3">Scopes</th>
                 <th className="px-3 py-3">创建</th>
@@ -137,13 +164,20 @@ export default async function TokensPage({ searchParams }: { searchParams: { new
             </thead>
             <tbody>
               {tokens.length === 0 && (
-                <tr><td colSpan={7} className="px-3 py-8 text-center text-sm text-muted-foreground">还没有 Token</td></tr>
+                <tr><td colSpan={8} className="px-3 py-8 text-center text-sm text-muted-foreground">还没有 Token</td></tr>
               )}
               {tokens.map((t) => (
                 <tr key={t.id} className="border-t hover:bg-gray-50">
                   <td className="px-3 py-3">
                     <p className="font-medium">{t.name}</p>
                     <p className="text-xs text-muted-foreground">{t.user?.name || t.user?.email}</p>
+                  </td>
+                  <td className="px-3 py-3 text-xs">
+                    {t.agent ? (
+                      <span className="chip-blue">{t.agent.displayName}</span>
+                    ) : (
+                      <span className="text-slate-400">— 人类用户 —</span>
+                    )}
                   </td>
                   <td className="px-3 py-3 font-mono text-xs">{t.prefix}...</td>
                   <td className="px-3 py-3 text-xs">

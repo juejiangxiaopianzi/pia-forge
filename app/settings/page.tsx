@@ -4,8 +4,14 @@ export const dynamic = 'force-dynamic';
 
 const SETTINGS = [
   {
+    title: 'Agents',
+    desc: '管理 Agent 身份 · 给你的 Claude Code / Cursor / 自建 Agent 颁发系统级身份',
+    href: '/settings/agents',
+    status: '可用',
+  },
+  {
     title: 'API Tokens',
-    desc: '管理 REST API / MCP Server 的访问 Token · 颁发给你的 Agent 和第三方系统',
+    desc: '管理 REST API / MCP Server 的访问 Token · 绑定到某个 Agent 身份',
     href: '/settings/tokens',
     status: '可用',
   },

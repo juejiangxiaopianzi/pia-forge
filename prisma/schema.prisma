@@ -23,9 +23,11 @@ model Organization {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  members   Membership[]
-  projects  PiaProject[]
-  apiTokens ApiToken[]
+  members     Membership[]
+  projects    PiaProject[]
+  apiTokens   ApiToken[]
+  agents      Agent[]
+  evaluations Evaluation[]
 }
 
 model User {
@@ -38,16 +40,17 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  memberships  Membership[]
-  rolesOwned   PiaRole[]      @relation("RoleOwner")
-  itemsOwned   DataItem[]     @relation("ItemOwner")
-  scenesOwned  Scenario[]     @relation("ScenarioOwner")
-  risksFiled   Risk[]         @relation("RiskFiler")
-  controlsLed  Mitigation[]   @relation("ControlOwner")
+  memberships       Membership[]
+  rolesOwned        PiaRole[]    @relation("RoleOwner")
+  itemsOwned        DataItem[]   @relation("ItemOwner")
+  scenesOwned       Scenario[]   @relation("ScenarioOwner")
+  risksFiled        Risk[]       @relation("RiskFiler")
+  controlsLed       Mitigation[] @relation("ControlOwner")
   controlsValidated Mitigation[] @relation("ControlValidator")
   conclusionsSigned Conclusion[] @relation("ConclusionSigner")
-  auditLogs    AuditLog[]
-  apiTokens    ApiToken[]
+  auditLogs         AuditLog[]
+  apiTokens         ApiToken[]
+  agentsOwned       Agent[]      @relation("AgentOwner")
 }
 
 model Membership {
@@ -80,7 +83,7 @@ model PiaProject {
   /// Module / 评估类型 · 决定本评估属于哪个合规场景（PIA / AUDIT / FILING / NOTICE / INCIDENT）
   /// 各 module 共用底层 7 张表，只在 UI 层和 prompt 层做差异化
   assessmentType AssessmentType @default(PIA)
-  code           String         // e.g. PIA-LP-001 / AUDIT-Q2-001
+  code           String // e.g. PIA-LP-001 / AUDIT-Q2-001
   title          String
   scope          String         @db.Text
   purpose        String         @db.Text
@@ -100,14 +103,15 @@ model PiaProject {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  roles         PiaRole[]
-  dataItems     DataItem[]
-  scenarios     Scenario[]
-  risks         Risk[]
-  mitigations   Mitigation[]
-  conclusions   Conclusion[]
-  auditLogs     AuditLog[]
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  roles          PiaRole[]
+  dataItems      DataItem[]
+  scenarios      Scenario[]
+  risks          Risk[]
+  mitigations    Mitigation[]
+  conclusions    Conclusion[]
+  auditLogs      AuditLog[]
+  fieldRevisions FieldRevision[]
 
   @@unique([organizationId, code])
 }
@@ -153,21 +157,21 @@ enum RiskLevel {
 // ────────────────────────────────────────────────────────────────────────
 
 model PiaRole {
-  id           String     @id @default(cuid())
+  id           String         @id @default(cuid())
   projectId    String
   roleType     RoleType
   shortLabel   String
   userId       String?
-  organization String?    // 部门
-  duties       String     @db.Text
+  organization String? // 部门
+  duties       String         @db.Text
   raciFlags    RaciFlag[]
   stages       PiaStage[]
-  deliverable  String     @db.Text
+  deliverable  String         @db.Text
   dueAt        DateTime?
   status       DeliveryStatus @default(NOT_STARTED)
-  notes        String?    @db.Text
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  notes        String?        @db.Text
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   project PiaProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user    User?      @relation("RoleOwner", fields: [userId], references: [id])
@@ -215,23 +219,28 @@ enum DeliveryStatus {
 // ────────────────────────────────────────────────────────────────────────
 
 model DataItem {
-  id              String      @id @default(cuid())
-  projectId       String
-  code            String      // DI-001
-  name            String
-  techName        String?
-  classification  PiClass     @default(GENERAL)
-  sensitiveSub    SensitiveSubtype[]
-  legalBasis      LegalBasis?
-  legalReasoning  String      @db.Text
-  isOutbound      Boolean     @default(false)
-  stages          FlowStage[]
-  necessity       String      @db.Text
-  status          ComplianceStatus @default(PENDING)
-  ownerId         String?
-  notes           String?     @db.Text
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  id                String             @id @default(cuid())
+  projectId         String
+  code              String // DI-001
+  name              String
+  techName          String?
+  classification    PiClass            @default(GENERAL)
+  sensitiveSub      SensitiveSubtype[]
+  legalBasis        LegalBasis?
+  legalReasoning    String             @db.Text
+  isOutbound        Boolean            @default(false)
+  stages            FlowStage[]
+  necessity         String             @db.Text
+  status            ComplianceStatus   @default(PENDING)
+  ownerId           String?
+  notes             String?            @db.Text
+  /// 最后编辑者标识 · 字段级历史走 FieldRevision
+  lastEditActorType ActorType?
+  lastEditUserId    String?
+  lastEditAgentId   String?
+  lastEditAt        DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   project   PiaProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   owner     User?      @relation("ItemOwner", fields: [ownerId], references: [id])
@@ -292,25 +301,25 @@ enum ComplianceStatus {
 // ────────────────────────────────────────────────────────────────────────
 
 model Scenario {
-  id              String      @id @default(cuid())
+  id              String           @id @default(cuid())
   projectId       String
-  code            String      // SC-001
+  code            String // SC-001
   name            String
-  description     String      @db.Text
+  description     String           @db.Text
   receiverType    ReceiverType
-  receiverRegions String      @db.Text
-  techPath        String      @db.Text
-  encryption      String      @db.Text
+  receiverRegions String           @db.Text
+  techPath        String           @db.Text
+  encryption      String           @db.Text
   annualVolume    BigInt?
   shareRatio      String?
-  triggerRules    String      @db.Text
-  safeguards      String      @db.Text
-  scenarioRisk    String      @db.Text
+  triggerRules    String           @db.Text
+  safeguards      String           @db.Text
+  scenarioRisk    String           @db.Text
   legalBases      LegalBasis[]
   ownerId         String?
   status          ComplianceStatus @default(PENDING)
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   project   PiaProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   owner     User?      @relation("ScenarioOwner", fields: [ownerId], references: [id])
@@ -334,22 +343,27 @@ enum ReceiverType {
 // ────────────────────────────────────────────────────────────────────────
 
 model Risk {
-  id              String      @id @default(cuid())
-  projectId       String
-  code            String      // R-001
-  name            String
-  category        RiskCategory
-  description     String      @db.Text
-  likelihood      Int         // 1-5
-  severity        Int         // 1-5
+  id                String       @id @default(cuid())
+  projectId         String
+  code              String // R-001
+  name              String
+  category          RiskCategory
+  description       String       @db.Text
+  likelihood        Int // 1-5
+  severity          Int // 1-5
   /// initial risk value = likelihood × severity (derived at read-time)
-  legalClauses    String      @db.Text
-  filerId         String?
-  identifiedAt    DateTime    @default(now())
-  strategy        RiskStrategy
-  notes           String?     @db.Text
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  legalClauses      String       @db.Text
+  filerId           String?
+  identifiedAt      DateTime     @default(now())
+  strategy          RiskStrategy
+  notes             String?      @db.Text
+  /// 当前最后编辑者（denormalized for list view 性能）· 字段级历史走 FieldRevision
+  lastEditActorType ActorType?
+  lastEditUserId    String?
+  lastEditAgentId   String?
+  lastEditAt        DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
   project     PiaProject   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   filer       User?        @relation("RiskFiler", fields: [filerId], references: [id])
@@ -385,26 +399,31 @@ enum RiskStrategy {
 // ────────────────────────────────────────────────────────────────────────
 
 model Mitigation {
-  id              String      @id @default(cuid())
-  projectId       String
-  code            String      // C-001
-  riskId          String
-  name            String
-  controlType     ControlType
-  details         String      @db.Text
-  ownerId         String?
-  dueAt           DateTime?
-  status          ControlStatus @default(NOT_STARTED)
+  id                 String          @id @default(cuid())
+  projectId          String
+  code               String // C-001
+  riskId             String
+  name               String
+  controlType        ControlType
+  details            String          @db.Text
+  ownerId            String?
+  dueAt              DateTime?
+  status             ControlStatus   @default(NOT_STARTED)
   residualLikelihood Int?
   residualSeverity   Int?
   acceptable         AcceptanceLevel @default(NOT_EVALUATED)
-  acceptReason       String?  @db.Text
+  acceptReason       String?         @db.Text
   evidenceUrls       String[]
   validatorId        String?
   validatedAt        DateTime?
-  notes              String?  @db.Text
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  notes              String?         @db.Text
+  /// 最后编辑者标识 · 字段级历史走 FieldRevision
+  lastEditActorType  ActorType?
+  lastEditUserId     String?
+  lastEditAgentId    String?
+  lastEditAt         DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 
   project   PiaProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   risk      Risk       @relation(fields: [riskId], references: [id], onDelete: Cascade)
@@ -444,25 +463,30 @@ enum AcceptanceLevel {
 // ────────────────────────────────────────────────────────────────────────
 
 model Conclusion {
-  id              String   @id @default(cuid())
-  projectId       String
-  title           String
-  evaluationTarget String  @db.Text
-  overallVerdict  String   @db.Text
-  residualLevel   RiskLevel
-  highRiskSummary String   @db.Text
-  businessAdvice  String   @db.Text
-  regulatorTone   String   @db.Text
-  signerId        String?
-  signerRoleLabel String?
-  signedAt        DateTime?
-  signatureUrl    String?
-  nextReviewAt    DateTime?
-  reviewTriggers  String   @db.Text
-  reviewerId      String?
-  state           ConclusionState @default(DRAFT)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                String          @id @default(cuid())
+  projectId         String
+  title             String
+  evaluationTarget  String          @db.Text
+  overallVerdict    String          @db.Text
+  residualLevel     RiskLevel
+  highRiskSummary   String          @db.Text
+  businessAdvice    String          @db.Text
+  regulatorTone     String          @db.Text
+  signerId          String?
+  signerRoleLabel   String?
+  signedAt          DateTime?
+  signatureUrl      String?
+  nextReviewAt      DateTime?
+  reviewTriggers    String          @db.Text
+  reviewerId        String?
+  state             ConclusionState @default(DRAFT)
+  /// 最后编辑者标识 · 字段级历史走 FieldRevision
+  lastEditActorType ActorType?
+  lastEditUserId    String?
+  lastEditAgentId   String?
+  lastEditAt        DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   project PiaProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   signer  User?      @relation("ConclusionSigner", fields: [signerId], references: [id])
@@ -479,27 +503,36 @@ enum ConclusionState {
 // ────────────────────────────────────────────────────────────────────────
 
 model AuditLog {
-  id         String   @id @default(cuid())
-  projectId  String?
-  userId     String?
-  resource   String   // PiaProject / Risk / Mitigation 等
-  resourceId String
-  action     String   // create / update / delete / sign
-  source     AuditSource @default(WEB) // 区分人 vs Agent 写入
-  agentName  String?  // Agent 自报姓名（如 Claude Code / Cursor / Custom）
-  diff       String?  @db.Text // JSON diff
-  createdAt  DateTime @default(now())
+  id                   String      @id @default(cuid())
+  projectId            String?
+  resource             String // PiaProject / Risk / Mitigation 等
+  resourceId           String
+  action               String // create / update / delete / sign / evaluate
+  source               AuditSource @default(WEB)
+  actorType            ActorType   @default(HUMAN)
+  /// 兼容字段 · actorType=HUMAN 时指向 User
+  userId               String?
+  /// actorType=AGENT 时指向 Agent
+  actorAgentId         String?
+  /// 当时 Agent 的能力快照
+  actorAgentSnapshotId String?
+  diff                 String?     @db.Text // JSON diff
+  createdAt            DateTime    @default(now())
 
   project PiaProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   user    User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([actorAgentId])
+  @@index([resource, resourceId])
 }
 
 enum AuditSource {
-  WEB         // 网页人工操作
-  REST_API    // 外部 Agent 走 REST API
-  MCP         // 外部 LLM Agent 走 MCP
-  SEED        // seed 脚本初始化
-  MIGRATION   // 数据迁移
+  WEB // 网页人工操作
+  REST_API // 外部 Agent 走 REST API
+  MCP // 外部 LLM Agent 走 MCP
+  SEED // seed 脚本初始化
+  MIGRATION // 数据迁移
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -507,23 +540,151 @@ enum AuditSource {
 // ────────────────────────────────────────────────────────────────────────
 
 model ApiToken {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
-  userId         String   // 这个 token 属于谁
-  name           String   // 用户起的备注，如 "我的 Claude Code"
-  prefix         String   // 显示前 8 位，方便区分（如 pia_a1b2c3d4）
-  hashedToken    String   @unique // 实际 token 的 sha256
+  userId         String // 这个 token 属于哪个 user（凭据归属）
+  agentId        String? // 关联的 Agent 身份（v0.2 起强烈推荐填）
+  name           String // 用户起的备注，如 "我的 Claude Code"
+  prefix         String // 显示前 8 位，方便区分（如 pia_a1b2c3d4）
+  hashedToken    String       @unique // 实际 token 的 sha256
   scopes         TokenScope[]
   lastUsedAt     DateTime?
   expiresAt      DateTime?
   revokedAt      DateTime?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime     @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent        Agent?       @relation(fields: [agentId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@index([userId])
+  @@index([agentId])
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Agent · 一等公民身份（系统颁发的长期 ID，绑定到具体 User）
+// ────────────────────────────────────────────────────────────────────────
+// 设计原则：
+// - id 是 system-issued、长期不变的「身份」（不是凭据）
+// - 同一个 Agent 内部可迭代 N 版，身份不变，版本走 AgentSnapshot
+// - 不追求跨系统统一标识 —— PIA Forge 自己颁就够
+// - Owner 是它代表的人（黄越的 Agent / 王某某的 Agent）
+
+model Agent {
+  id             String      @id @default(cuid()) // 形如 agt_xxxxxxxx，由 lib 层加前缀
+  organizationId String
+  ownerId        String // 它代表谁
+  displayName    String // "黄越的 Claude Code" / "PIA 风险起草助手"
+  description    String?     @db.Text
+  status         AgentStatus @default(ACTIVE)
+  retiredAt      DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner        User            @relation("AgentOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  snapshots    AgentSnapshot[]
+  apiTokens    ApiToken[]
+
+  @@index([organizationId])
+  @@index([ownerId])
+}
+
+enum AgentStatus {
+  ACTIVE
+  RETIRED
+}
+
+// 每次 Agent 内部能力变更（换 prompt / 装新 skill / 升级 model）登记一条
+model AgentSnapshot {
+  id          String   @id @default(cuid())
+  agentId     String
+  version     String // 用户自填，如 "v1.2" / "2026-05-31"
+  profileHash String? // 可选：prompt+skill+model 摘要
+  changeNotes String?  @db.Text
+  capturedAt  DateTime @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, version])
+  @@index([agentId])
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// FieldRevision · 字段级修订流水
+// ────────────────────────────────────────────────────────────────────────
+// 每次某条数据的某个字段被改 → 写一条
+// 用来回答：
+//   - "这条数据原本是 Agent 草拟的什么 → 人最终保留/改成了什么"
+//   - "Agent 是基于什么思考链给出的这个判断"
+//   - "改稿率 / 判断偏差" 的原始数据来源
+
+model FieldRevision {
+  id                   String      @id @default(cuid())
+  projectId            String? // 关联 PiaProject（便于按项目反查）
+  resource             String // "Risk" | "DataItem" | "Mitigation" | "Conclusion" | "Scenario"
+  resourceId           String
+  fieldName            String // "name" | "likelihood" | "legalReasoning" | ...
+  oldValue             String?     @db.Text
+  newValue             String?     @db.Text
+  /// JSON · Agent 思考链 { read[], considered[], chose, why }
+  reasoning            String?     @db.Text
+  actorType            ActorType
+  actorUserId          String? // 当 actorType=HUMAN
+  actorAgentId         String? // 当 actorType=AGENT
+  actorAgentSnapshotId String? // 当 actorType=AGENT 时附带 snapshot
+  source               AuditSource
+  createdAt            DateTime    @default(now())
+
+  project PiaProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([resource, resourceId])
+  @@index([actorAgentId])
+  @@index([actorUserId])
+}
+
+enum ActorType {
+  HUMAN
+  AGENT
+  SYSTEM // seed/migration/cron 等
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Evaluation · 一等动作 · 4 种关系（人↔人 / 人↔Agent / Agent↔人 / Agent↔Agent）
+// ────────────────────────────────────────────────────────────────────────
+
+model Evaluation {
+  id                       String                @id @default(cuid())
+  organizationId           String
+  evaluatorType            ActorType
+  evaluatorUserId          String?
+  evaluatorAgentId         String?
+  evaluatorAgentSnapshotId String?
+  subjectType              EvaluationSubjectType
+  /// 当 subject 是 USER → User.id
+  /// 当 subject 是 AGENT → Agent.id
+  /// 当 subject 是 RECORD → "${resource}:${resourceId}"
+  subjectRef               String
+  /// 1-5 分；可选
+  score                    Int?
+  comment                  String?               @db.Text
+  payload                  String?               @db.Text // JSON · 任何额外结构化数据
+  createdAt                DateTime              @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([subjectType, subjectRef])
+  @@index([evaluatorAgentId])
+  @@index([evaluatorUserId])
+}
+
+enum EvaluationSubjectType {
+  USER
+  AGENT
+  RECORD // 评价某条数据本身（Risk 写得好不好 / 思考链漂不漂亮）
 }
 
 enum TokenScope {
@@ -536,5 +697,5 @@ enum TokenScope {
   READ_CONCLUSIONS
   WRITE_CONCLUSIONS
   GENERATE_REPORT
-  ADMIN  // 所有权限
+  ADMIN // 所有权限
 }

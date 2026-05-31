@@ -16,6 +16,8 @@ export type AuthContext = {
   userId: string;
   organizationId: string;
   scopes: TokenScope[];
+  /// 当 token 绑定到 Agent 时,actor 应被视为 AGENT
+  agentId: string | null;
 };
 
 export function generateApiToken(): { plaintext: string; prefix: string; hashed: string } {
@@ -57,6 +59,7 @@ export async function verifyApiToken(authHeader: string | null | undefined): Pro
     userId: token.userId,
     organizationId: token.organizationId,
     scopes: token.scopes,
+    agentId: token.agentId,
   };
 }
 

@@ -1,20 +1,21 @@
 /**
  * 审计留痕 · 统一入口
- * 所有写操作（创建/更新/删除/签字）都应通过本模块记一条 AuditLog。
- * PIPL §56 留痕至少 3 年的合规义务由本表承担。
+ * PIPL §56 留痕 ≥3 年的合规义务由本表承担。
+ * 与 FieldRevision 互补：AuditLog 记 record 级动作(create/update/delete/sign)，
+ * FieldRevision 记字段级 diff（细到「这个字段 Agent 草拟了 X 人改成了 Y」）
  */
 
 import { db } from '@/lib/db';
 import type { AuditSource } from '@prisma/client';
+import type { Actor } from '@/lib/actor';
 
 export type AuditEntry = {
   projectId?: string | null;
-  userId?: string | null;
-  resource: string; // e.g. "Risk" / "Mitigation" / "Conclusion"
+  actor: Actor;
+  resource: string;
   resourceId: string;
-  action: string;   // "create" | "update" | "delete" | "sign" | "revoke" 等
+  action: string;
   source: AuditSource;
-  agentName?: string | null;
   diff?: unknown;
 };
 
@@ -23,17 +24,18 @@ export async function logAudit(entry: AuditEntry) {
     await db.auditLog.create({
       data: {
         projectId: entry.projectId ?? null,
-        userId: entry.userId ?? null,
         resource: entry.resource,
         resourceId: entry.resourceId,
         action: entry.action,
         source: entry.source,
-        agentName: entry.agentName ?? null,
+        actorType: entry.actor.type,
+        userId: entry.actor.type === 'HUMAN' ? entry.actor.userId : null,
+        actorAgentId: entry.actor.type === 'AGENT' ? entry.actor.agentId : null,
+        actorAgentSnapshotId: entry.actor.agentSnapshotId,
         diff: entry.diff ? JSON.stringify(entry.diff) : null,
       },
     });
   } catch (e) {
-    // 留痕失败不阻塞业务，但需要被监控发现
     console.error('[audit-log] failed', e);
   }
 }

@@ -3,6 +3,8 @@ import { verifyApiToken, requireScope } from '@/lib/api-auth';
 import { ok, created, errUnauthorized, errBadRequest, errNotFound, errServer } from '@/lib/api-response';
 import { logAudit } from '@/lib/audit-log';
 import { riskValue, riskLevelOf } from '@/lib/risk';
+import { resolveActor, actorToLastEditFields } from '@/lib/actor';
+import { writeFieldRevisions, type ReasoningPayload } from '@/lib/field-revision';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +26,6 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     },
   });
 
-  // 把计算字段加上方便外部 Agent 拿
   const enriched = risks.map((r) => {
     const value = riskValue(r.likelihood, r.severity);
     return { ...r, riskValue: value, riskLevel: riskLevelOf(value) };
@@ -51,7 +52,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!body.category) return errBadRequest('category 必填');
   if (!body.strategy) return errBadRequest('strategy 必填 (MITIGATE / TRANSFER / ACCEPT / AVOID)');
 
-  // 自动生成 code 如果没传
+  const actor = await resolveActor(ctx, req.headers);
+  const reasoning: ReasoningPayload | undefined = body.reasoning;
+
   const count = await db.risk.count({ where: { projectId: project.id } });
   const code = body.code ?? `R-${String(count + 1).padStart(3, '0')}`;
 
@@ -68,21 +71,39 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       filerId: body.filerId ?? ctx.userId,
       strategy: body.strategy,
       notes: body.notes ?? null,
+      ...actorToLastEditFields(actor),
       dataItems: body.dataItemIds ? { connect: body.dataItemIds.map((id: string) => ({ id })) } : undefined,
       scenarios: body.scenarioIds ? { connect: body.scenarioIds.map((id: string) => ({ id })) } : undefined,
     },
   });
 
+  // FieldRevision · 把创建时的初始值全部记一次,reasoning 挂在「name」上
+  const changes = ['name','category','description','likelihood','severity','legalClauses','strategy']
+    .map((f) => ({ field: f, oldValue: null, newValue: (risk as any)[f] }));
+
+  await writeFieldRevisions({
+    projectId: project.id,
+    resource: 'Risk',
+    resourceId: risk.id,
+    changes,
+    actor,
+    source: actor.type === 'AGENT' ? (req.url.includes('/mcp') ? 'MCP' : 'REST_API') : 'WEB',
+    reasoning: reasoning ?? null,
+  });
+
   await logAudit({
     projectId: project.id,
-    userId: ctx.userId,
+    actor,
     resource: 'Risk',
     resourceId: risk.id,
     action: 'create',
-    source: 'REST_API',
-    agentName: req.headers.get('x-agent-name'),
+    source: actor.type === 'AGENT' ? 'REST_API' : 'WEB',
     diff: { created: risk },
   });
 
-  return created({ ...risk, riskValue: risk.likelihood * risk.severity });
+  return created({
+    ...risk,
+    riskValue: risk.likelihood * risk.severity,
+    riskLevel: riskLevelOf(risk.likelihood * risk.severity),
+  });
 }

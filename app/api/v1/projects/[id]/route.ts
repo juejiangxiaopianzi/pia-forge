@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { verifyApiToken, requireScope } from '@/lib/api-auth';
 import { ok, errUnauthorized, errNotFound, errBadRequest, errServer } from '@/lib/api-response';
 import { logAudit } from '@/lib/audit-log';
+import { resolveActor } from '@/lib/actor';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,14 +51,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     },
   });
 
+  const actor = await resolveActor(ctx, req.headers);
   await logAudit({
     projectId: updated.id,
-    userId: ctx.userId,
+    actor,
     resource: 'PiaProject',
     resourceId: updated.id,
     action: 'update',
-    source: 'REST_API',
-    agentName: req.headers.get('x-agent-name'),
+    source: actor.type === 'AGENT' ? 'REST_API' : 'WEB',
     diff: { before: existing, after: updated },
   });
 

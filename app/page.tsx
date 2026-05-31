@@ -5,7 +5,7 @@ import { riskValue, riskLevelOf, RISK_LEVEL_LABEL, RISK_LEVEL_COLOR } from '@/li
 export const dynamic = 'force-dynamic';
 
 const MODULES = [
-  { type: 'PIA', label: 'PIA', desc: '个人信息保护影响评估', status: 'v0.1 · 已上线', accent: 'bg-violet-500' },
+  { type: 'PIA', label: 'PIA', desc: '个人信息保护影响评估', status: 'v0.1 · 已上线', accent: 'bg-blue-500' },
   { type: 'AUDIT', label: 'Audit', desc: '合规审计', status: 'v0.2 · 规划中', accent: 'bg-blue-500' },
   { type: 'FILING', label: 'Filing', desc: '申报与备案台账', status: 'v0.3 · 规划中', accent: 'bg-teal-500' },
   { type: 'NOTICE', label: 'Notice', desc: '告知与同意版本', status: 'v0.4 · 规划中', accent: 'bg-amber-500' },
@@ -28,9 +28,10 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-12">
-      <section className="rounded-3xl border bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-10 shadow-sm">
-        <div className="max-w-3xl space-y-4">
-          <p className="text-xs font-medium tracking-widest text-violet-700">
+      <section className="relative overflow-hidden rounded-3xl border border-blue-100/60 bg-white p-10 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(59,130,246,0.06)]">
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,_#FFFFFF_0%,_#F4F8FF_45%,_#DCE9FE_100%)]" />
+        <div className="relative max-w-3xl space-y-4">
+          <p className="text-xs font-medium tracking-widest text-blue-600">
             COMPLIANCE PROFESSIONAL'S OPEN DATA BACKBONE
           </p>
           <h1 className="text-4xl font-bold tracking-tight">
@@ -40,10 +41,10 @@ export default async function HomePage() {
             PIA Forge 不带 LLM · 不抢 Agent · 只做合规人自己的底座。
             5 个 module 共用一套底座，3 层开放接口让你的 Agent 把活儿干完后落到这里。
           </p>
-          <div className="flex gap-3 pt-2">
+          <div className="relative flex gap-3 pt-2">
             <Link
               href="/projects/new"
-              className="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-violet-200 transition hover:bg-violet-700"
+              className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-200 transition hover:bg-blue-700"
             >
               新建评估项目
             </Link>
@@ -109,11 +110,11 @@ export default async function HomePage() {
       <section>
         <div className="mb-4 flex items-baseline justify-between">
           <h2 className="text-base font-medium text-muted-foreground">最近评估项目</h2>
-          <Link href="/projects" className="text-xs text-violet-700 hover:underline">查看全部 →</Link>
+          <Link href="/projects" className="text-xs text-blue-700 hover:underline">查看全部 →</Link>
         </div>
         {projects.length === 0 ? (
           <div className="rounded-2xl border border-dashed p-12 text-center text-sm text-muted-foreground">
-            还没有评估项目。<Link href="/projects/new" className="text-violet-600 hover:underline">创建第一个 →</Link>
+            还没有评估项目。<Link href="/projects/new" className="text-blue-600 hover:underline">创建第一个 →</Link>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -126,11 +127,11 @@ export default async function HomePage() {
                 <Link
                   key={p.id}
                   href={`/projects/${p.id}`}
-                  className="rounded-2xl border bg-white p-5 transition hover:border-violet-300 hover:shadow-sm"
+                  className="rounded-2xl border bg-white p-5 transition hover:border-blue-300 hover:shadow-sm"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-[10px] font-medium uppercase tracking-wider text-violet-700">
+                      <p className="text-[10px] font-medium uppercase tracking-wider text-blue-700">
                         {p.assessmentType} · {p.code}
                       </p>
                       <h3 className="mt-1 text-base font-medium">{p.title}</h3>
@@ -171,11 +172,11 @@ function InterfaceCard({ title, desc, href }: { title: string; desc: string; hre
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="block rounded-2xl border bg-white p-5 transition hover:border-violet-300 hover:shadow-sm"
+      className="block rounded-2xl border bg-white p-5 transition hover:border-blue-300 hover:shadow-sm"
     >
       <p className="text-sm font-semibold">{title}</p>
       <p className="mt-2 text-xs text-muted-foreground">{desc}</p>
-      <p className="mt-4 text-xs text-violet-700">查看文档 →</p>
+      <p className="mt-4 text-xs text-blue-700">查看文档 →</p>
     </a>
   );
 }

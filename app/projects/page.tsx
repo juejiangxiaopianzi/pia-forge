@@ -30,7 +30,7 @@ export default async function ProjectsListPage({ searchParams }: { searchParams:
         </div>
         <Link
           href="/projects/new"
-          className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
           + 新建评估
         </Link>
@@ -44,7 +44,7 @@ export default async function ProjectsListPage({ searchParams }: { searchParams:
               key={t.label}
               href={t.type ? `/projects?module=${t.type}` : '/projects'}
               className={`rounded-lg px-3 py-1.5 text-sm transition ${
-                active ? 'bg-violet-100 text-violet-700' : 'text-muted-foreground hover:text-foreground'
+                active ? 'bg-blue-100 text-blue-700' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {t.label}
@@ -69,19 +69,19 @@ export default async function ProjectsListPage({ searchParams }: { searchParams:
           <tbody>
             {projects.length === 0 && (
               <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-muted-foreground">
-                没有项目。<Link href="/projects/new" className="text-violet-700 hover:underline">创建第一个 →</Link>
+                没有项目。<Link href="/projects/new" className="text-blue-700 hover:underline">创建第一个 →</Link>
               </td></tr>
             )}
             {projects.map((p) => (
               <tr key={p.id} className="border-t hover:bg-gray-50">
                 <td className="px-4 py-3 font-mono text-xs">{p.code}</td>
                 <td className="px-4 py-3">
-                  <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700">
+                  <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
                     {p.assessmentType}
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <Link href={`/projects/${p.id}`} className="font-medium text-violet-700 hover:underline">
+                  <Link href={`/projects/${p.id}`} className="font-medium text-blue-700 hover:underline">
                     {p.title}
                   </Link>
                 </td>

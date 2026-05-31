@@ -82,7 +82,7 @@ function BarBlock({ title, data }: { title: string; data: { label: string; value
             <span className="w-32 truncate text-muted-foreground">{d.label}</span>
             <div className="relative h-3 flex-1 rounded bg-gray-100">
               <div
-                className="h-3 rounded bg-violet-500"
+                className="h-3 rounded bg-blue-500"
                 style={{ width: `${(d.value / max) * 100}%` }}
               />
             </div>

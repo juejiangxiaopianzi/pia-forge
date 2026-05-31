@@ -45,7 +45,7 @@ export default async function ProjectOverview({ params }: { params: { id: string
     <div className="space-y-8">
       <div>
         <div className="flex items-center gap-2 text-xs">
-          <span className="rounded-full bg-violet-50 px-2 py-0.5 font-medium text-violet-700">{L.module}</span>
+          <span className="rounded-full bg-blue-50 px-2 py-0.5 font-medium text-blue-700">{L.module}</span>
           <span className="font-mono text-muted-foreground">{project.code} · {project.version}</span>
         </div>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">{project.title}</h1>
@@ -58,7 +58,7 @@ export default async function ProjectOverview({ params }: { params: { id: string
             key={t.slug}
             href={`/projects/${project.id}${t.slug ? '/' + t.slug : ''}`}
             className={`whitespace-nowrap border-b-2 px-4 py-2 text-sm ${
-              !t.slug ? 'border-violet-600 text-violet-700 font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'
+              !t.slug ? 'border-blue-600 text-blue-700 font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
             title={t.desc}
           >

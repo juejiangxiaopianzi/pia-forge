@@ -41,7 +41,7 @@ export default function IntegrationsPage() {
         <h2 className="text-base font-medium">3 步上手</h2>
         <ol className="mt-3 space-y-2 text-sm text-muted-foreground">
           <li>
-            <strong className="text-foreground">① 生成一个 API Token</strong> —— 去 <Link href="/settings/tokens" className="text-violet-700 hover:underline">设置 → API Tokens</Link>，给你的 Agent 颁一个。Token 只在生成时显示一次。
+            <strong className="text-foreground">① 生成一个 API Token</strong> —— 去 <Link href="/settings/tokens" className="text-blue-700 hover:underline">设置 → API Tokens</Link>，给你的 Agent 颁一个。Token 只在生成时显示一次。
           </li>
           <li>
             <strong className="text-foreground">② 选一层接入方式</strong>
@@ -75,14 +75,14 @@ export default function IntegrationsPage() {
 function Card({ tag, title, desc, docHref, cta }: { tag: string; title: string; desc: string; docHref: string; cta: string }) {
   return (
     <div className="card-soft p-5">
-      <p className="text-[10px] font-medium uppercase tracking-widest text-violet-700">{tag}</p>
+      <p className="text-[10px] font-medium uppercase tracking-widest text-blue-700">{tag}</p>
       <h3 className="mt-2 text-base font-semibold">{title}</h3>
       <p className="mt-2 text-xs text-muted-foreground">{desc}</p>
       <a
         href={docHref}
         target="_blank"
         rel="noreferrer"
-        className="mt-4 inline-block text-xs text-violet-700 hover:underline"
+        className="mt-4 inline-block text-xs text-blue-700 hover:underline"
       >
         {cta} →
       </a>

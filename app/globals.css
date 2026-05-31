@@ -20,7 +20,7 @@
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
-    --primary: 262 83% 58%;
+    --primary: 217 91% 60%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -32,7 +32,7 @@
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 262 83% 58%;
+    --ring: 217 91% 60%;
     --radius: 0.875rem;
     --risk-high: 0 72% 51%;
     --risk-mid: 38 92% 50%;
@@ -52,11 +52,11 @@
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;
     --card-foreground: 210 40% 98%;
-    --primary: 263 70% 65%;
+    --primary: 217 91% 66%;
     --primary-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 263 70% 65%;
+    --ring: 217 91% 66%;
   }
 }
 
@@ -89,6 +89,6 @@
     @apply bg-white/85 backdrop-blur-xl;
   }
   .ring-focus {
-    @apply outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100;
+    @apply outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100;
   }
 }

@@ -67,10 +67,10 @@ export default async function TokensPage({ searchParams }: { searchParams: { new
       </div>
 
       {searchParams.new && (
-        <div className="rounded-xl border border-violet-200 bg-violet-50 p-4">
-          <p className="text-sm font-medium text-violet-900">新 Token 已生成 · 仅显示这一次</p>
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+          <p className="text-sm font-medium text-blue-900">新 Token 已生成 · 仅显示这一次</p>
           <code className="mt-2 block break-all rounded bg-white p-3 font-mono text-xs">{searchParams.new}</code>
-          <p className="mt-2 text-xs text-violet-700">
+          <p className="mt-2 text-xs text-blue-700">
             复制保存到密码管理器或你的 Agent 配置里。关闭本页后无法再次查看。
           </p>
         </div>
@@ -95,7 +95,7 @@ export default async function TokensPage({ searchParams }: { searchParams: { new
               name="name"
               required
               placeholder="如：我的 Claude Code · 我的 Cursor · 部门内审 Agent"
-              className="mt-1.5 w-full rounded-lg border bg-white px-3 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+              className="mt-1.5 w-full rounded-lg border bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
           </label>
 
@@ -104,7 +104,7 @@ export default async function TokensPage({ searchParams }: { searchParams: { new
             <input
               name="scopes"
               defaultValue="ADMIN"
-              className="mt-1.5 w-full rounded-lg border bg-white px-3 py-2 font-mono text-xs outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+              className="mt-1.5 w-full rounded-lg border bg-white px-3 py-2 font-mono text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
             <p className="mt-1 text-xs text-muted-foreground">
               可用：{ALL_SCOPES.join(' · ')}
@@ -113,7 +113,7 @@ export default async function TokensPage({ searchParams }: { searchParams: { new
 
           <button
             type="submit"
-            className="rounded-lg bg-violet-600 px-5 py-2 text-sm font-medium text-white hover:bg-violet-700"
+            className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
             生成 Token
           </button>
@@ -182,10 +182,10 @@ export default async function TokensPage({ searchParams }: { searchParams: { new
       <section className="rounded-xl border bg-gray-50 p-5 text-sm">
         <h3 className="font-medium">怎么用</h3>
         <p className="mt-2 text-xs text-muted-foreground">
-          - REST API：详见 <a className="text-violet-700 hover:underline" href="/docs/api">/docs/api</a>
+          - REST API：详见 <a className="text-blue-700 hover:underline" href="/docs/api">/docs/api</a>
         </p>
         <p className="text-xs text-muted-foreground">
-          - MCP Server：详见 <a className="text-violet-700 hover:underline" href="/docs/mcp">/docs/mcp</a>
+          - MCP Server：详见 <a className="text-blue-700 hover:underline" href="/docs/mcp">/docs/mcp</a>
         </p>
         <p className="text-xs text-muted-foreground">
           - Skill Pack：详见仓库 <code className="rounded bg-white px-1">skills/</code> 目录

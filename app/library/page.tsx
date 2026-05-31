@@ -53,7 +53,7 @@ export default function LibraryPage() {
         {LAWS.map((l) => (
           <article key={l.code} className="rounded-xl border bg-white p-5">
             <header className="flex items-baseline gap-3">
-              <span className="rounded bg-violet-100 px-2 py-0.5 font-mono text-xs text-violet-700">{l.code}</span>
+              <span className="rounded bg-blue-100 px-2 py-0.5 font-mono text-xs text-blue-700">{l.code}</span>
               <h3 className="text-base font-medium">{l.title}</h3>
             </header>
             <p className="mt-2 text-sm text-muted-foreground">{l.body}</p>

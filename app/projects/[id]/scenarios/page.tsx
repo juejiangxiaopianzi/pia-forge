@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { db } from '@/lib/db';
 import { labelsFor } from '@/lib/module-labels';
 
@@ -24,9 +25,14 @@ export default async function ScenariosPage({ params }: { params: { id: string }
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-xs text-muted-foreground">{project.code} · 04 {L.scenario.plural}</p>
-        <h1 className="mt-1 text-2xl font-semibold">{L.scenario.plural}</h1>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs text-muted-foreground">{project.code} · 04 {L.scenario.plural}</p>
+          <h1 className="mt-1 text-2xl font-semibold">{L.scenario.plural}</h1>
+        </div>
+        <Link href={`/projects/${project.id}/scenarios/new`} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+          + 新增{L.scenario.singular}
+        </Link>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">

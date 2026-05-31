@@ -45,7 +45,7 @@ export default function SettingsPage() {
           <Link
             key={s.href}
             href={s.href}
-            className="card-soft block p-5 transition hover:border-violet-300"
+            className="card-soft block p-5 transition hover:border-blue-300"
           >
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold">{s.title}</p>

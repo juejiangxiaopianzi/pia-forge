@@ -69,7 +69,7 @@ export default async function RolesPage({ params }: { params: { id: string } }) 
                   </td>
                   <td className="px-3 py-3 text-xs">
                     {r.raciFlags.map((f) => (
-                      <span key={f} className="mr-1 inline-block rounded bg-violet-100 px-1.5 py-0.5 text-[10px] text-violet-700">{f}</span>
+                      <span key={f} className="mr-1 inline-block rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700">{f}</span>
                     ))}
                   </td>
                   <td className="px-3 py-3 text-[10px] text-muted-foreground">

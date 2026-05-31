@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { db } from '@/lib/db';
 import { riskValue, riskLevelOf, RISK_LEVEL_LABEL, RISK_LEVEL_COLOR } from '@/lib/risk';
 import { labelsFor } from '@/lib/module-labels';
@@ -27,9 +28,9 @@ export default async function RisksPage({ params }: { params: { id: string } }) 
           <p className="text-xs text-muted-foreground">{project.code} · 05 {L.risk.plural}</p>
           <h1 className="mt-1 text-2xl font-semibold">{L.risk.plural}</h1>
         </div>
-        <button className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">
+        <Link href={`/projects/${project.id}/risks/new`} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
           + 新增{L.risk.singular}
-        </button>
+        </Link>
       </div>
 
       <div className="overflow-hidden rounded-xl border bg-white">

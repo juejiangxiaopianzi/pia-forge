@@ -64,14 +64,14 @@ export default function NewProjectPage() {
             {MODULES.map((m, idx) => (
               <label
                 key={m.type}
-                className="flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition has-[:checked]:border-violet-500 has-[:checked]:bg-violet-50"
+                className="flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50"
               >
                 <input
                   type="radio"
                   name="assessmentType"
                   value={m.type}
                   defaultChecked={idx === 0}
-                  className="mt-0.5 accent-violet-600"
+                  className="mt-0.5 accent-blue-600"
                 />
                 <div>
                   <p className="text-sm font-medium">{m.label}</p>
@@ -88,7 +88,7 @@ export default function NewProjectPage() {
         <Textarea name="purpose" label="评估目的" placeholder="为什么做这次评估 — 监管要求 / 内部审计 / 新功能上线 等" />
 
         <div className="flex justify-end gap-2 pt-2">
-          <button type="submit" className="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-violet-700">
+          <button type="submit" className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700">
             创建
           </button>
         </div>
@@ -105,7 +105,7 @@ function Field({ name, label, placeholder, required }: { name: string; label: st
         name={name}
         required={required}
         placeholder={placeholder}
-        className="mt-1.5 w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+        className="mt-1.5 w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
       />
     </label>
   );
@@ -119,7 +119,7 @@ function Textarea({ name, label, placeholder }: { name: string; label: string; p
         name={name}
         placeholder={placeholder}
         rows={4}
-        className="mt-1.5 w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+        className="mt-1.5 w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
       />
     </label>
   );

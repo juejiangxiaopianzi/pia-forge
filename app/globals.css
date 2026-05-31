@@ -17,23 +17,23 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 47% 11%;
     --primary: 217 91% 60%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 47% 14%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 220 14% 96%;
+    --accent-foreground: 222 47% 14%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 215 28% 92%;
+    --input: 215 28% 92%;
     --ring: 217 91% 60%;
-    --radius: 0.875rem;
+    --radius: 1rem;
     --risk-high: 0 72% 51%;
     --risk-mid: 38 92% 50%;
     --risk-low: 142 71% 45%;
@@ -45,6 +45,14 @@
     --font-mono:
       'SF Mono', ui-monospace, SFMono-Regular, 'Cascadia Code', 'Roboto Mono',
       Menlo, Consolas, monospace;
+
+    /* Layered shadows · 苹果风极轻分层 */
+    --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 8px rgba(15, 23, 42, 0.04);
+    --shadow-md: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+    --shadow-lg: 0 1px 3px rgba(15, 23, 42, 0.06), 0 16px 40px rgba(15, 23, 42, 0.08);
+
+    --tint-blue: 224 233 254;  /* 调用方写 hsl 或 rgb */
   }
 
   .dark {
@@ -73,22 +81,58 @@
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
     font-feature-settings: 'cv11', 'ss01', 'kern';
-    letter-spacing: -0.005em;
+    letter-spacing: -0.011em;
+  }
+  h1, h2, h3, h4 {
+    letter-spacing: -0.022em;
   }
   code, kbd, pre, samp {
     font-family: var(--font-mono);
   }
+  /* 中性表格 · 行分隔比 border 更柔 */
+  table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
 }
 
-/* Apple-style utility classes（黄越回来一起改） */
+/* Apple-style utility classes */
 @layer components {
   .card-soft {
-    @apply rounded-2xl border bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_12px_rgba(15,23,42,0.04)];
+    @apply rounded-2xl bg-white ring-1 ring-slate-200/60;
+    box-shadow: var(--shadow-sm);
+  }
+  .card-hover {
+    @apply transition-all duration-200 hover:ring-blue-200/80;
+  }
+  .card-hover:hover {
+    box-shadow: var(--shadow-md);
   }
   .surface-glass {
-    @apply bg-white/85 backdrop-blur-xl;
+    @apply bg-white/75 backdrop-blur-xl;
   }
   .ring-focus {
-    @apply outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100;
+    @apply outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100/60;
+  }
+  .chip {
+    @apply inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700;
+  }
+  .chip-blue {
+    @apply inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700;
+  }
+  .chip-green {
+    @apply inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700;
+  }
+  .chip-amber {
+    @apply inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700;
+  }
+  .chip-red {
+    @apply inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-200/60 transition hover:bg-blue-700 active:scale-[0.98];
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50;
   }
 }

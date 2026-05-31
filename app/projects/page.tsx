@@ -23,28 +23,27 @@ export default async function ProjectsListPage({ searchParams }: { searchParams:
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-end justify-between">
         <div>
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">评估项目</p>
-          <h1 className="mt-1 text-2xl font-semibold">{filterType ? `${filterType} 模块` : '全部评估'}</h1>
+          <p className="text-[11px] font-medium uppercase tracking-wider text-blue-600">评估项目</p>
+          <h1 className="mt-1 text-[28px] font-semibold tracking-tight">
+            {filterType ? `${filterType} 模块` : '全部评估'}
+          </h1>
         </div>
-        <Link
-          href="/projects/new"
-          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          + 新建评估
-        </Link>
+        <Link href="/projects/new" className="btn-primary">+ 新建评估</Link>
       </div>
 
-      <nav className="flex gap-1 overflow-x-auto rounded-xl border bg-white p-1">
+      <nav className="inline-flex gap-0.5 rounded-xl bg-slate-100/80 p-1">
         {MODULE_TAB.map((t) => {
           const active = (t.type ?? '') === (filterType ?? '');
           return (
             <Link
               key={t.label}
               href={t.type ? `/projects?module=${t.type}` : '/projects'}
-              className={`rounded-lg px-3 py-1.5 text-sm transition ${
-                active ? 'bg-blue-100 text-blue-700' : 'text-muted-foreground hover:text-foreground'
+              className={`rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition ${
+                active
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               {t.label}
@@ -53,46 +52,44 @@ export default async function ProjectsListPage({ searchParams }: { searchParams:
         })}
       </nav>
 
-      <div className="overflow-hidden rounded-2xl border bg-white">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-left text-xs uppercase tracking-wider text-muted-foreground">
+      <div className="card-soft overflow-hidden">
+        <table className="w-full text-[13px]">
+          <thead className="bg-slate-50/50 text-left text-[11px] uppercase tracking-wider text-slate-500">
             <tr>
-              <th className="px-4 py-3">编号</th>
-              <th className="px-4 py-3">Module</th>
-              <th className="px-4 py-3">标题</th>
-              <th className="px-4 py-3">版本</th>
-              <th className="px-4 py-3">残余风险</th>
-              <th className="px-4 py-3">审批</th>
-              <th className="px-4 py-3 text-right">更新时间</th>
+              <th className="px-4 py-3 font-medium">编号</th>
+              <th className="px-4 py-3 font-medium">Module</th>
+              <th className="px-4 py-3 font-medium">标题</th>
+              <th className="px-4 py-3 font-medium">版本</th>
+              <th className="px-4 py-3 font-medium">残余风险</th>
+              <th className="px-4 py-3 font-medium">审批</th>
+              <th className="px-4 py-3 text-right font-medium">更新</th>
             </tr>
           </thead>
           <tbody>
             {projects.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-muted-foreground">
-                没有项目。<Link href="/projects/new" className="text-blue-700 hover:underline">创建第一个 →</Link>
+              <tr><td colSpan={7} className="px-4 py-14 text-center text-sm text-slate-500">
+                没有项目。<Link href="/projects/new" className="text-blue-600 hover:underline">创建第一个 →</Link>
               </td></tr>
             )}
             {projects.map((p) => (
-              <tr key={p.id} className="border-t hover:bg-gray-50">
-                <td className="px-4 py-3 font-mono text-xs">{p.code}</td>
-                <td className="px-4 py-3">
-                  <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
-                    {p.assessmentType}
-                  </span>
+              <tr key={p.id} className="border-t border-slate-100 transition hover:bg-blue-50/30">
+                <td className="px-4 py-3.5 font-mono text-[12px] text-slate-500">{p.code}</td>
+                <td className="px-4 py-3.5">
+                  <span className="chip-blue text-[10px]">{p.assessmentType}</span>
                 </td>
-                <td className="px-4 py-3">
-                  <Link href={`/projects/${p.id}`} className="font-medium text-blue-700 hover:underline">
+                <td className="px-4 py-3.5">
+                  <Link href={`/projects/${p.id}`} className="font-medium text-slate-900 hover:text-blue-600">
                     {p.title}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-muted-foreground">{p.version}</td>
-                <td className="px-4 py-3">
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs ${RISK_LEVEL_COLOR[p.residualLevel]}`}>
+                <td className="px-4 py-3.5 text-slate-500">{p.version}</td>
+                <td className="px-4 py-3.5">
+                  <span className={`rounded-full px-2.5 py-0.5 text-[11px] ${RISK_LEVEL_COLOR[p.residualLevel]}`}>
                     {RISK_LEVEL_LABEL[p.residualLevel]}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-xs text-muted-foreground">{p.approvalState}</td>
-                <td className="px-4 py-3 text-right text-xs text-muted-foreground">
+                <td className="px-4 py-3.5 text-[11px] text-slate-500">{p.approvalState}</td>
+                <td className="px-4 py-3.5 text-right text-[11px] text-slate-400">
                   {p.updatedAt.toLocaleDateString('zh-CN')}
                 </td>
               </tr>

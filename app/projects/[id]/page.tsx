@@ -44,21 +44,23 @@ export default async function ProjectOverview({ params }: { params: { id: string
   return (
     <div className="space-y-8">
       <div>
-        <div className="flex items-center gap-2 text-xs">
-          <span className="rounded-full bg-blue-50 px-2 py-0.5 font-medium text-blue-700">{L.module}</span>
-          <span className="font-mono text-muted-foreground">{project.code} · {project.version}</span>
+        <div className="flex items-center gap-2 text-[11px]">
+          <span className="chip-blue">{L.module}</span>
+          <span className="font-mono text-slate-400">{project.code}</span>
+          <span className="text-slate-300">·</span>
+          <span className="text-slate-500">{project.version}</span>
         </div>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">{project.title}</h1>
-        <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{project.scope}</p>
+        <h1 className="mt-3 text-[28px] font-semibold tracking-tight leading-tight">{project.title}</h1>
+        <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-slate-500">{project.scope}</p>
       </div>
 
-      <nav className="flex gap-1 overflow-x-auto border-b">
+      <nav className="flex gap-0.5 overflow-x-auto border-b border-slate-200/60">
         {TABS.map((t) => (
           <Link
             key={t.slug}
             href={`/projects/${project.id}${t.slug ? '/' + t.slug : ''}`}
-            className={`whitespace-nowrap border-b-2 px-4 py-2 text-sm ${
-              !t.slug ? 'border-blue-600 text-blue-700 font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'
+            className={`whitespace-nowrap -mb-px border-b-2 px-3.5 py-2.5 text-[13px] transition ${
+              !t.slug ? 'border-blue-600 font-medium text-blue-700' : 'border-transparent font-medium text-slate-500 hover:text-slate-900'
             }`}
             title={t.desc}
           >

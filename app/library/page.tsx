@@ -43,20 +43,23 @@ const LAWS = [
 
 export default function LibraryPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold">合规法规库</h1>
-        <p className="mt-1 text-sm text-muted-foreground">本系统所依据的法规条款速查。PIA 中的「评估依据」「定性依据」字段会引用这些条款。</p>
+        <p className="text-[11px] font-medium uppercase tracking-wider text-blue-600">合规法规库</p>
+        <h1 className="mt-1 text-[28px] font-semibold tracking-tight">本系统所依据的法规条款</h1>
+        <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-slate-500">
+          PIA 中的「评估依据」「定性依据」字段会引用这些条款。Agent 也可以通过 MCP 的 <code className="rounded bg-slate-100 px-1 text-[11px]">resources/read</code> 访问。
+        </p>
       </div>
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-3">
         {LAWS.map((l) => (
-          <article key={l.code} className="rounded-xl border bg-white p-5">
-            <header className="flex items-baseline gap-3">
-              <span className="rounded bg-blue-100 px-2 py-0.5 font-mono text-xs text-blue-700">{l.code}</span>
-              <h3 className="text-base font-medium">{l.title}</h3>
+          <article key={l.code} className="card-soft card-hover p-6">
+            <header className="flex items-center gap-3">
+              <span className="rounded-lg bg-blue-50 px-2 py-0.5 font-mono text-[11px] font-medium text-blue-700">{l.code}</span>
+              <h3 className="text-[14px] font-semibold text-slate-900">{l.title}</h3>
             </header>
-            <p className="mt-2 text-sm text-muted-foreground">{l.body}</p>
+            <p className="mt-3 text-[13px] leading-relaxed text-slate-600">{l.body}</p>
           </article>
         ))}
       </div>

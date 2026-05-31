@@ -6,10 +6,11 @@ export default function IntegrationsPage() {
   return (
     <div className="max-w-4xl space-y-10">
       <div>
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">Integrations</p>
-        <h1 className="mt-1 text-2xl font-semibold">把你的 Agent 接进来</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          PIA Forge 提供三层开放接口 —— 任选一层接进来。你的 Agent 干完活后把结构化数据写回 PIA Forge，团队能看 + 监管能审 + 系统会自动留痕。
+        <p className="text-[11px] font-medium uppercase tracking-wider text-blue-600">Integrations</p>
+        <h1 className="mt-1 text-[28px] font-semibold tracking-tight">把你的 Agent 接进来</h1>
+        <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-slate-500">
+          PIA Forge 提供三层开放接口,任选一层接进来。
+          你的 Agent 干完活后把结构化数据写回 PIA Forge,团队能看 · 监管能审 · 系统会自动留痕。
         </p>
       </div>
 
@@ -74,15 +75,15 @@ export default function IntegrationsPage() {
 
 function Card({ tag, title, desc, docHref, cta }: { tag: string; title: string; desc: string; docHref: string; cta: string }) {
   return (
-    <div className="card-soft p-5">
-      <p className="text-[10px] font-medium uppercase tracking-widest text-blue-700">{tag}</p>
-      <h3 className="mt-2 text-base font-semibold">{title}</h3>
-      <p className="mt-2 text-xs text-muted-foreground">{desc}</p>
+    <div className="card-soft card-hover p-5">
+      <p className="font-mono text-[10px] font-semibold uppercase tracking-widest text-blue-500">{tag}</p>
+      <h3 className="mt-2 text-[14px] font-semibold text-slate-900">{title}</h3>
+      <p className="mt-2 text-[12px] leading-relaxed text-slate-500">{desc}</p>
       <a
         href={docHref}
         target="_blank"
         rel="noreferrer"
-        className="mt-4 inline-block text-xs text-blue-700 hover:underline"
+        className="mt-4 inline-block text-[11px] font-medium text-blue-600 hover:text-blue-700"
       >
         {cta} →
       </a>

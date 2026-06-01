@@ -62,10 +62,17 @@ export default function RiskMatrix({
       </div>
 
       <div className="mt-4 overflow-x-auto">
-        <table className="w-full border-separate border-spacing-1 text-[11px]">
+        <table className="w-full border-separate border-spacing-1 text-[11px]" style={{ tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: '90px' }} />
+            <col style={{ width: '22%' }} />
+            <col style={{ width: '22%' }} />
+            <col style={{ width: '22%' }} />
+            <col style={{ width: '22%' }} />
+          </colgroup>
           <thead>
             <tr>
-              <th className="w-24 text-[10px] font-medium text-slate-400">影响 \\ 可能</th>
+              <th className="text-[10px] font-medium text-slate-400">影响 \\ 可能</th>
               {[1, 2, 3, 4].map((l) => (
                 <th key={l} className="px-2 py-1 text-center text-[10px] font-medium text-slate-500">
                   {GBT_SCORE_LABEL[l]}({l})
@@ -85,12 +92,12 @@ export default function RiskMatrix({
                     const l = ci + 1;
                     const color = gbtLevelColor(i, l);
                     return (
-                      <td key={ci} className="p-0">
-                        <div className={`relative aspect-square w-full min-w-[64px] rounded-lg p-1 ${color} flex flex-col items-stretch justify-start`}>
+                      <td key={ci} className="p-0 h-24 align-top">
+                        <div className={`relative h-24 w-full rounded-lg p-1 ${color} flex flex-col items-stretch justify-start`}>
                           <div className="absolute top-1 right-1.5 text-[10px] font-bold opacity-70 tabular-nums">
                             {gbtLevelLabel(i, l)}
                           </div>
-                          <div className="flex flex-1 flex-wrap items-start gap-1 pt-4 overflow-hidden">
+                          <div className="flex flex-1 flex-wrap items-start gap-1 pt-4 overflow-hidden content-start">
                             {cell.map((r) => (
                               <Link
                                 key={r.id}

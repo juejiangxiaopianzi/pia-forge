@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { riskValue, riskLevelOf, RISK_LEVEL_LABEL, RISK_LEVEL_COLOR } from '@/lib/risk';
 import { labelsFor } from '@/lib/module-labels';
 import { sourceUriToHref } from '@/lib/citations';
+import Breadcrumb from '@/components/Breadcrumb';
 
 const CITATION_TYPE_LABEL: Record<string, string> = {
   EVIDENCE: '判断依据',
@@ -132,7 +133,13 @@ export default async function RiskDetailPage({
     : null;
 
   return (
-    <div className="max-w-4xl space-y-8">
+    <div className="max-w-4xl space-y-6">
+      <Breadcrumb items={[
+        { label: '评估', href: '/projects' },
+        { label: project.code, href: `/projects/${project.id}` },
+        { label: L.risk.plural, href: `/projects/${project.id}/risks` },
+        { label: `${risk.code} · ${risk.name}` },
+      ]} />
       <div>
         <Link
           href={`/projects/${project.id}/risks`}

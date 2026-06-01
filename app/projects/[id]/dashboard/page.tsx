@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
+import Breadcrumb from '@/components/Breadcrumb';
 import { riskValue, riskLevelOf, RISK_LEVEL_LABEL } from '@/lib/risk';
 
 export const dynamic = 'force-dynamic';
@@ -29,6 +30,12 @@ export default async function DashboardPage({ params }: { params: { id: string }
 
   return (
     <div className="space-y-8">
+      <Breadcrumb items={[
+        { label: '评估', href: '/projects' },
+        { label: project.code, href: `/projects/${project.id}` },
+        { label: '仪表盘' },
+      ]} />
+
       <div>
         <p className="text-xs text-muted-foreground">{project.code} · 可视化仪表盘</p>
         <h1 className="mt-1 text-2xl font-semibold">PIA 仪表盘</h1>

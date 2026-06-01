@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
+import Breadcrumb from '@/components/Breadcrumb';
 import { riskValue, riskLevelOf, RISK_LEVEL_LABEL } from '@/lib/risk';
 
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,12 @@ export default async function ReportPage({ params }: { params: { id: string } })
 
   return (
     <div className="space-y-6">
+      <Breadcrumb items={[
+        { label: '评估', href: '/projects' },
+        { label: project.code, href: `/projects/${project.id}` },
+        { label: '报告' },
+      ]} />
+
       <div className="flex items-end justify-between gap-4">
         <div>
           <p className="text-[11px] font-medium uppercase tracking-wider text-blue-600">{project.code} · 报告导出</p>

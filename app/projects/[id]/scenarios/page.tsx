@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { db } from '@/lib/db';
+import Breadcrumb from '@/components/Breadcrumb';
 import { labelsFor } from '@/lib/module-labels';
 
 export const dynamic = 'force-dynamic';
@@ -25,6 +26,12 @@ export default async function ScenariosPage({ params }: { params: { id: string }
 
   return (
     <div className="space-y-6">
+      <Breadcrumb items={[
+        { label: '评估', href: '/projects' },
+        { label: project.code, href: `/projects/${project.id}` },
+        { label: '场景' },
+      ]} />
+
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs text-muted-foreground">{project.code} · 04 {L.scenario.plural}</p>

@@ -3,6 +3,9 @@ import Link from 'next/link';
 import { db } from '@/lib/db';
 import { riskValue, riskLevelOf, RISK_LEVEL_LABEL, RISK_LEVEL_COLOR } from '@/lib/risk';
 import { labelsFor } from '@/lib/module-labels';
+import Breadcrumb from '@/components/Breadcrumb';
+import RiskMatrix from '@/components/RiskMatrix';
+import ProjectDashboard from '@/components/ProjectDashboard';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +13,8 @@ export default async function ProjectOverview({ params }: { params: { id: string
   const project = await db.piaProject.findUnique({
     where: { id: params.id },
     include: {
-      risks: { select: { likelihood: true, severity: true, category: true, name: true, code: true } },
+      risks: { select: { id: true, likelihood: true, severity: true, category: true, name: true, code: true } },
+      mitigations: { select: { acceptable: true } },
       _count: { select: { dataItems: true, scenarios: true, risks: true, mitigations: true, roles: true } },
     },
   });
@@ -36,13 +40,22 @@ export default async function ProjectOverview({ params }: { params: { id: string
     riskByLevel[lv] += 1;
   });
 
+  const acceptableCount = project.mitigations.filter((m) => m.acceptable === 'ACCEPTABLE').length;
+  const conditionalCount = project.mitigations.filter((m) => m.acceptable === 'CONDITIONAL').length;
+  const unacceptableCount = project.mitigations.filter((m) => m.acceptable === 'UNACCEPTABLE').length;
+
   const topRisks = [...project.risks]
     .map((r) => ({ ...r, value: riskValue(r.likelihood, r.severity) ?? 0 }))
     .sort((a, b) => b.value - a.value)
-    .slice(0, 3);
+    .slice(0, 5);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      <Breadcrumb items={[
+        { label: '评估', href: '/projects' },
+        { label: `${project.code} · ${project.title}` },
+      ]} />
+
       <div>
         <div className="flex items-center gap-2 text-[11px]">
           <span className="chip-blue">{L.module}</span>
@@ -69,66 +82,71 @@ export default async function ProjectOverview({ params }: { params: { id: string
         ))}
       </nav>
 
-      <section className="grid gap-4 md:grid-cols-4">
-        <Tile title={L.dataItem.singular} value={project._count.dataItems} />
-        <Tile title={L.scenario.singular} value={project._count.scenarios} />
-        <Tile title={L.risk.singular} value={project._count.risks} sub={riskByLevel.HIGH > 0 ? `高 ${riskByLevel.HIGH}` : undefined} />
-        <Tile title={L.mitigation.singular} value={project._count.mitigations} />
-      </section>
+      {/* Dashboard 总览 */}
+      <ProjectDashboard
+        stats={{
+          totalRisks: project._count.risks,
+          highCount: riskByLevel.HIGH,
+          mediumCount: riskByLevel.MEDIUM,
+          lowCount: riskByLevel.LOW,
+          totalMitigations: project._count.mitigations,
+          acceptableCount,
+          conditionalCount,
+          unacceptableCount,
+          dataItems: project._count.dataItems,
+          scenarios: project._count.scenarios,
+          roles: project._count.roles,
+          residualLevel: project.residualLevel,
+        }}
+      />
 
-      <section className="grid gap-6 md:grid-cols-2">
-        <div className="card-soft p-5">
-          <h3 className="text-sm font-medium">本评估摘要</h3>
-          <dl className="mt-3 space-y-2 text-sm">
-            <Row label="Module" value={`${L.module} · ${L.modulesDesc}`} />
-            <Row label="评估起止" value={`${project.startedAt.toLocaleDateString('zh-CN')} → ${project.targetDoneAt?.toLocaleDateString('zh-CN') ?? '—'}`} />
-            <Row label="整体结论" value={project.overallVerdict} />
-            <Row label="残余风险" value={<span className={`rounded-full px-2.5 py-0.5 text-xs ${RISK_LEVEL_COLOR[project.residualLevel]}`}>{RISK_LEVEL_LABEL[project.residualLevel]}</span>} />
-            <Row label="审批状态" value={project.approvalState} />
-            <Row label="评估依据" value={project.legalBases.join(' · ') || '—'} />
-          </dl>
-        </div>
+      <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+        <RiskMatrix risks={project.risks} projectId={project.id} />
 
         <div className="card-soft p-5">
-          <h3 className="text-sm font-medium">Top 3 {L.risk.singular}</h3>
+          <h3 className="text-[15px] font-semibold">Top 5 高分风险</h3>
           {topRisks.length === 0 ? (
-            <p className="mt-3 text-sm text-muted-foreground">还没有 {L.risk.singular}。让你的 Agent 通过 MCP / API 写一些进来，或者在网页直接添加。</p>
+            <p className="mt-3 text-[12px] text-slate-400">还没有风险</p>
           ) : (
-            <ul className="mt-3 space-y-3 text-sm">
+            <ol className="mt-3 space-y-2 text-[12px]">
               {topRisks.map((r) => {
                 const lv = riskLevelOf(r.value);
                 return (
-                  <li key={r.code} className="flex items-start gap-3">
-                    <span className={`mt-0.5 rounded-full px-2 py-0.5 text-[10px] ${RISK_LEVEL_COLOR[lv]}`}>{r.value}</span>
-                    <div className="flex-1">
-                      <p className="font-mono text-xs text-muted-foreground">{r.code} · {r.category}</p>
-                      <p className="leading-snug">{r.name}</p>
-                    </div>
+                  <li key={r.code}>
+                    <Link href={`/projects/${project.id}/risks/${r.id}`} className="flex items-start gap-3 rounded-lg px-2 py-2 hover:bg-blue-50/40">
+                      <span className={`mt-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ${RISK_LEVEL_COLOR[lv]}`}>{r.value}</span>
+                      <div className="flex-1">
+                        <p className="font-mono text-[10px] text-slate-500">{r.code} · {r.category}</p>
+                        <p className="leading-snug text-slate-900">{r.name}</p>
+                      </div>
+                    </Link>
                   </li>
                 );
               })}
-            </ul>
+            </ol>
           )}
         </div>
-      </section>
-    </div>
-  );
-}
+      </div>
 
-function Tile({ title, value, sub }: { title: string; value: number; sub?: string }) {
-  return (
-    <div className="card-soft p-5">
-      <p className="text-xs text-muted-foreground">{title}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
-      {sub && <p className="text-xs text-red-500">{sub}</p>}
+      <div className="card-soft p-5">
+        <h3 className="text-[15px] font-semibold">本评估元信息</h3>
+        <dl className="mt-3 space-y-2 text-[13px]">
+          <Row label="Module" value={`${L.module} · ${L.modulesDesc}`} />
+          <Row label="评估起止" value={`${project.startedAt.toLocaleDateString('zh-CN')} → ${project.targetDoneAt?.toLocaleDateString('zh-CN') ?? '—'}`} />
+          <Row label="整体结论" value={<span className="text-slate-700">{project.overallVerdict}</span>} />
+          <Row label="残余风险" value={<span className={`rounded-full px-2.5 py-0.5 text-[11px] ${RISK_LEVEL_COLOR[project.residualLevel]}`}>{RISK_LEVEL_LABEL[project.residualLevel]}</span>} />
+          <Row label="审批状态" value={project.approvalState} />
+          <Row label="评估依据" value={<span className="text-[12px] text-slate-600">{project.legalBases.join(' · ') || '—'}</span>} />
+        </dl>
+      </div>
     </div>
   );
 }
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b py-1.5 last:border-0">
-      <dt className="text-xs uppercase tracking-wider text-muted-foreground">{label}</dt>
+    <div className="flex items-start justify-between gap-4 border-b border-slate-100 py-2 last:border-0">
+      <dt className="text-[11px] uppercase tracking-wider text-slate-500 whitespace-nowrap">{label}</dt>
       <dd className="text-right">{value}</dd>
     </div>
   );

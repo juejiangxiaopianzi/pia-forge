@@ -30,6 +30,7 @@ model Organization {
   evaluations    Evaluation[]
   sources        Source[]
   knowledgeBases KnowledgeBase[]
+  InviteCode     InviteCode[]
 }
 
 model User {
@@ -53,6 +54,8 @@ model User {
   auditLogs         AuditLog[]
   apiTokens         ApiToken[]
   agentsOwned       Agent[]      @relation("AgentOwner")
+  invitesCreated    InviteCode[] @relation("InviteCreator")
+  invitesUsed       InviteCode?  @relation("InviteUsedBy")
 }
 
 model Membership {
@@ -886,4 +889,40 @@ model KnowledgeIndex {
   @@index([ownerUserId])
   @@index([ownerAgentId])
   @@index([topic])
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// InviteCode · 邀请码 · 黄越发码,被邀请人 /signup?code=xxx 注册
+// ────────────────────────────────────────────────────────────────────────
+
+model InviteCode {
+  id              String           @id @default(cuid())
+  organizationId  String
+  /// 短码 · 例如 ABC-7K9 · @@unique
+  code            String           @unique
+  /// 备注 · 给谁用 · 显示在管理页
+  note            String?
+  /// 创建者
+  createdByUserId String
+  /// 已用 by 谁 · 一个码对一个 user
+  usedByUserId    String?          @unique
+  usedAt          DateTime?
+  /// 过期时间 · null = 永久
+  expiresAt       DateTime?
+  status          InviteCodeStatus @default(ACTIVE)
+  createdAt       DateTime         @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("InviteCreator", fields: [createdByUserId], references: [id])
+  usedBy       User?        @relation("InviteUsedBy", fields: [usedByUserId], references: [id])
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+enum InviteCodeStatus {
+  ACTIVE
+  USED
+  REVOKED
+  EXPIRED
 }

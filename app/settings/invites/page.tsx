@@ -154,7 +154,7 @@ export default async function InvitesPage() {
                     </td>
                     <td className="px-4 py-3 text-[12px] text-slate-500">
                       {inv.status === 'USED' && inv.usedBy ? (
-                        <span>👤 {inv.usedBy.name} <span className="text-slate-400">({inv.usedBy.email})</span></span>
+                        <span>{inv.usedBy.name} <span className="text-slate-400">({inv.usedBy.email})</span></span>
                       ) : inv.expiresAt ? (
                         <span>到期 {inv.expiresAt.toLocaleDateString('zh-CN')}</span>
                       ) : (

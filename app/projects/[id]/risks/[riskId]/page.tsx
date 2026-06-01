@@ -165,13 +165,13 @@ export default async function RiskDetailPage({
             <span className="text-slate-500">最后编辑：</span>
             {risk.lastEditActorType === 'AGENT' && editorAgent ? (
               <span>
-                <span className="chip-blue">🤖 {editorAgent.displayName}</span>
+                <span className="chip-blue">{editorAgent.displayName}</span>
                 <span className="ml-2 text-slate-500">
                   ({editorAgent.owner?.name ?? 'unknown'} 的 Agent)
                 </span>
               </span>
             ) : risk.lastEditActorType === 'HUMAN' && editorUser ? (
-              <span className="chip">👤 {editorUser.name ?? '人类'}</span>
+              <span className="chip">{editorUser.name ?? '人类'}</span>
             ) : (
               <span className="text-slate-400">—</span>
             )}
@@ -262,9 +262,9 @@ export default async function RiskDetailPage({
             const { href, label } = sourceUriToHref(cl.source.type, cl.source.uri);
             const editor =
               cl.citedByActorType === 'AGENT' && cl.citedByAgentId
-                ? `🤖 ${citedAgentMap.get(cl.citedByAgentId)?.displayName ?? 'Agent'}`
+                ? `${citedAgentMap.get(cl.citedByAgentId)?.displayName ?? 'Agent'}`
                 : cl.citedByActorType === 'HUMAN' && cl.citedByUserId
-                  ? `👤 ${citedUserMap.get(cl.citedByUserId)?.name ?? '人类'}`
+                  ? `${citedUserMap.get(cl.citedByUserId)?.name ?? '人类'}`
                   : '—';
             return (
               <article key={cl.id} className="rounded-xl border border-slate-100 bg-white/60 p-4">
@@ -320,10 +320,10 @@ export default async function RiskDetailPage({
             const actorChip =
               rev.actorType === 'AGENT' && rev.actorAgentId ? (
                 <span className="chip-blue">
-                  🤖 {agentMap.get(rev.actorAgentId)?.displayName ?? 'Agent'}
+                  {agentMap.get(rev.actorAgentId)?.displayName ?? 'Agent'}
                 </span>
               ) : rev.actorType === 'HUMAN' && rev.actorUserId ? (
-                <span className="chip">👤 {userMap.get(rev.actorUserId)?.name ?? '人类'}</span>
+                <span className="chip">{userMap.get(rev.actorUserId)?.name ?? '人类'}</span>
               ) : (
                 <span className="chip">{rev.actorType}</span>
               );

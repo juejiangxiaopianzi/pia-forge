@@ -110,11 +110,11 @@ export default async function RisksPage({ params }: { params: { id: string } }) 
                   <td className="px-3 py-3 text-xs">
                     {r.lastEditActorType === 'AGENT' && r.lastEditAgentId ? (
                       <span className="chip-blue">
-                        🤖 {agentMap.get(r.lastEditAgentId)?.displayName ?? 'Agent'}
+                        {agentMap.get(r.lastEditAgentId)?.displayName ?? 'Agent'}
                       </span>
                     ) : r.lastEditActorType === 'HUMAN' && r.lastEditUserId ? (
                       <span className="chip">
-                        👤 {userMap.get(r.lastEditUserId)?.name ?? '人类'}
+                        {userMap.get(r.lastEditUserId)?.name ?? '人类'}
                       </span>
                     ) : (
                       <span className="text-slate-400">—</span>

@@ -4,17 +4,17 @@ import Breadcrumb from '@/components/Breadcrumb';
 
 export const dynamic = 'force-dynamic';
 
-const ROLE_LABEL: Record<string, { label: string; icon: string; cls: string }> = {
-  PIA_LEAD:           { label: 'PIA 主理人',         icon: '👑', cls: 'bg-blue-50 text-blue-700' },
-  LEGAL_LEAD:         { label: '法务负责人',         icon: '⚖️', cls: 'bg-violet-50 text-violet-700' },
-  C_END_PRODUCT:      { label: 'C 端产品',           icon: '📱', cls: 'bg-amber-50 text-amber-700' },
-  B_END_PRODUCT:      { label: 'B 端产品',           icon: '🏢', cls: 'bg-amber-50 text-amber-700' },
-  DATA_TEAM:          { label: '数据团队',           icon: '📊', cls: 'bg-emerald-50 text-emerald-700' },
-  ENGINEERING:        { label: '研发',               icon: '⚙️', cls: 'bg-slate-100 text-slate-700' },
-  SECURITY_AUDIT:     { label: '安全审核',           icon: '🛡️', cls: 'bg-red-50 text-red-700' },
-  COMPLIANCE_OFFICER: { label: '合规专员',           icon: '📋', cls: 'bg-blue-50 text-blue-700' },
-  EXEC_APPROVER:      { label: 'CTO / 高管',         icon: '🎖️', cls: 'bg-violet-100 text-violet-800' },
-  EXTERNAL_COUNSEL:   { label: '外部法律顾问',       icon: '📜', cls: 'bg-slate-100 text-slate-700' },
+const ROLE_LABEL: Record<string, { label: string; cls: string }> = {
+  PIA_LEAD:           { label: 'PIA 主理人',         cls: 'bg-blue-50 text-blue-700 ring-blue-100' },
+  LEGAL_LEAD:         { label: '法务负责人',         cls: 'bg-violet-50 text-violet-700 ring-violet-100' },
+  C_END_PRODUCT:      { label: 'C 端产品',           cls: 'bg-amber-50 text-amber-700 ring-amber-100' },
+  B_END_PRODUCT:      { label: 'B 端产品',           cls: 'bg-amber-50 text-amber-700 ring-amber-100' },
+  DATA_TEAM:          { label: '数据团队',           cls: 'bg-emerald-50 text-emerald-700 ring-emerald-100' },
+  ENGINEERING:        { label: '研发',               cls: 'bg-slate-100 text-slate-700 ring-slate-200' },
+  SECURITY_AUDIT:     { label: '安全审核',           cls: 'bg-red-50 text-red-700 ring-red-100' },
+  COMPLIANCE_OFFICER: { label: '合规专员',           cls: 'bg-blue-50 text-blue-700 ring-blue-100' },
+  EXEC_APPROVER:      { label: 'CTO / 高管',         cls: 'bg-violet-100 text-violet-800 ring-violet-200' },
+  EXTERNAL_COUNSEL:   { label: '外部法律顾问',       cls: 'bg-slate-100 text-slate-700 ring-slate-200' },
 };
 
 const STAGE_LABEL: Record<string, string> = {
@@ -71,7 +71,6 @@ export default async function RolesPage({ params }: { params: { id: string } }) 
         </div>
       ) : (
         <>
-          {/* RACI 速查表(对每个阶段每个角色的 R/A/C/I) */}
           <div className="card-soft p-5">
             <h2 className="text-[15px] font-semibold">RACI 阶段矩阵</h2>
             <p className="mt-1 text-[11px] text-slate-500">
@@ -89,13 +88,13 @@ export default async function RolesPage({ params }: { params: { id: string } }) 
                 </thead>
                 <tbody>
                   {roles.map((r) => {
-                    const meta = ROLE_LABEL[r.roleType] ?? { label: r.roleType, icon: '👤', cls: 'chip' };
+                    const meta = ROLE_LABEL[r.roleType] ?? { label: r.roleType, cls: 'chip' };
                     return (
                       <tr key={r.id} className="border-b border-slate-100">
                         <td className="px-3 py-2.5">
-                          <div className="flex items-center gap-2">
-                            <span className={`rounded-md px-2 py-0.5 text-[10px] ${meta.cls}`}>{meta.icon} {meta.label}</span>
-                          </div>
+                          <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] ring-1 ${meta.cls}`}>
+                            {meta.label}
+                          </span>
                         </td>
                         {STAGES.map((s) => {
                           const involved = r.stages.includes(s as any);
@@ -128,22 +127,23 @@ export default async function RolesPage({ params }: { params: { id: string } }) 
             </div>
           </div>
 
-          {/* 详细角色卡 */}
           <div className="grid gap-4 md:grid-cols-2">
             {roles.map((r) => {
-              const meta = ROLE_LABEL[r.roleType] ?? { label: r.roleType, icon: '👤', cls: 'chip' };
+              const meta = ROLE_LABEL[r.roleType] ?? { label: r.roleType, cls: 'chip' };
               const st = STATUS_META[r.status];
               return (
                 <article key={r.id} className="card-soft p-5">
                   <header className="flex items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className={`rounded-lg px-2 py-0.5 text-[10px] ${meta.cls}`}>{meta.icon} {meta.label}</span>
+                        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] ring-1 ${meta.cls}`}>
+                          {meta.label}
+                        </span>
                         <span className={st.cls}>{st.label}</span>
                       </div>
                       <h3 className="mt-2 text-[14px] font-semibold text-slate-900">{r.shortLabel}</h3>
                       <p className="mt-1 text-[11px] text-slate-500">
-                        {r.user?.name ?? '👤 待指派'}
+                        {r.user?.name ?? <span className="text-slate-400">待指派</span>}
                         {r.organization && <span className="ml-2 text-slate-400">· {r.organization}</span>}
                       </p>
                     </div>

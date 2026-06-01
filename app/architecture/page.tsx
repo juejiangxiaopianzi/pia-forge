@@ -103,7 +103,7 @@ export default async function ArchitecturePage() {
                 {agents.length === 0 && <li className="text-slate-400">还没有 Agent。先去 /settings/agents 添加</li>}
                 {agents.map((a) => (
                   <li key={a.id} className="flex items-center gap-2">
-                    <span>🤖</span>
+                    <span></span>
                     <span className="font-medium">{a.displayName}</span>
                     <span className="font-mono text-[10px] text-slate-400">{a.id}</span>
                   </li>

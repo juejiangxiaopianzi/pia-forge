@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { headers } from 'next/headers';
 import './globals.css';
 import { getSession } from '@/lib/auth-session';
+import { db } from '@/lib/db';
 
 export const metadata: Metadata = {
   title: 'PIA Forge — 合规人自己的开放数据中台',
@@ -15,6 +16,34 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const h = headers();
   const pathname = h.get('x-invoke-path') ?? h.get('referer') ?? '';
   const isAuthPage = pathname.includes('/login') || pathname.includes('/signup');
+
+  // 协作中心红点 · 我的任务(未完成) + 待我审阅(PENDING)
+  let taskCount = 0;
+  let reviewCount = 0;
+  if (session) {
+    try {
+      const [t, r] = await Promise.all([
+        db.assignment.count({
+          where: {
+            organizationId: session.organizationId,
+            assigneeUserId: session.userId,
+            status: { in: ['TODO', 'IN_PROGRESS', 'AWAITING_REVIEW'] },
+          },
+        }),
+        db.reviewRequest.count({
+          where: {
+            organizationId: session.organizationId,
+            reviewerUserId: session.userId,
+            status: 'PENDING',
+          },
+        }),
+      ]);
+      taskCount = t;
+      reviewCount = r;
+    } catch {
+      // schema 未应用时静默 fallback
+    }
+  }
 
   return (
     <html lang="zh-CN" suppressHydrationWarning>
@@ -31,6 +60,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <NavLink href="/library">法规库</NavLink>
                 <NavLink href="/architecture">架构</NavLink>
                 <NavLink href="/integrations">接入 Agent</NavLink>
+                <NavLink href="/my-tasks" badge={taskCount}>我的任务</NavLink>
+                <NavLink href="/my-reviews" badge={reviewCount}>待我审阅</NavLink>
                 <NavLink href="/settings">设置</NavLink>
                 <UserMenu name={session.name ?? session.email} email={session.email} />
               </nav>
@@ -60,10 +91,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   );
 }
 
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+function NavLink({ href, children, badge }: { href: string; children: React.ReactNode; badge?: number }) {
   return (
-    <Link href={href} className="rounded-lg px-3 py-1.5 font-medium text-slate-600 transition hover:bg-slate-100/60 hover:text-slate-900">
+    <Link href={href} className="inline-flex items-center rounded-lg px-3 py-1.5 font-medium text-slate-600 transition hover:bg-slate-100/60 hover:text-slate-900">
       {children}
+      {badge && badge > 0 ? (
+        <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+          {badge}
+        </span>
+      ) : null}
     </Link>
   );
 }

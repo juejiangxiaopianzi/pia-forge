@@ -2,7 +2,10 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { db } from '@/lib/db';
 import Breadcrumb from '@/components/Breadcrumb';
-import { riskValue, riskLevelOf, RISK_LEVEL_LABEL, RISK_LEVEL_COLOR } from '@/lib/risk';
+import {
+  IMPACT_DIMENSIONS, LIKELIHOOD_FACTORS, GBT_SCORE_COLOR, GBT_SCORE_LABEL,
+  gbtLevelLabel, gbtLevelColor,
+} from '@/lib/risk';
 import { labelsFor } from '@/lib/module-labels';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +17,7 @@ export default async function RisksPage({ params }: { params: { id: string } }) 
 
   const risks = await db.risk.findMany({
     where: { projectId: project.id },
-    orderBy: [{ likelihood: 'desc' }, { severity: 'desc' }],
+    orderBy: [{ impactOverall: 'desc' }, { likelihoodOverall: 'desc' }, { likelihood: 'desc' }, { severity: 'desc' }],
     include: {
       dataItems: { select: { code: true, name: true } },
       scenarios: { select: { code: true, name: true } },
@@ -52,62 +55,71 @@ export default async function RisksPage({ params }: { params: { id: string } }) 
         </Link>
       </div>
 
+      <p className="text-[11px] text-slate-500">
+        按 GB/T 39335-2020 国标:个人权益影响 4 维 × 安全事件可能性 4 因素;每个色块 0-4 档(无/低/中/高/严重)。
+      </p>
+
       <div className="overflow-hidden rounded-xl border bg-white">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-left text-xs uppercase tracking-wider text-muted-foreground">
+        <table className="w-full text-[13px]">
+          <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wider text-slate-500">
             <tr>
               <th className="px-3 py-3">编号</th>
-              <th className="px-3 py-3">{L.risk.singular}</th>
-              <th className="px-3 py-3">类别</th>
-              <th className="px-3 py-3 text-center">可能</th>
-              <th className="px-3 py-3 text-center">严重</th>
-              <th className="px-3 py-3 text-center">风险值</th>
-              <th className="px-3 py-3">等级</th>
+              <th className="px-3 py-3">名称 / 风险源</th>
+              <th className="px-3 py-3">受影响主体</th>
+              <th className="px-3 py-3">权益影响</th>
+              <th className="px-3 py-3">可能性</th>
+              <th className="px-3 py-3">综合等级</th>
               <th className="px-3 py-3">处置</th>
-              <th className="px-3 py-3">措施</th>
-              <th className="px-3 py-3">由谁编辑</th>
+              <th className="px-3 py-3">编辑者</th>
             </tr>
           </thead>
           <tbody>
             {risks.map((r) => {
-              const v = riskValue(r.likelihood, r.severity);
-              const lv = riskLevelOf(v);
+              const impactScores = [r.impactDecide, r.impactDiscriminate, r.impactReputation, r.impactProperty];
+              const factorScores = [r.factorNetwork, r.factorProcess, r.factorPersonnel, r.factorBusiness];
               return (
                 <tr key={r.id} className="border-t align-top hover:bg-blue-50/30">
-                  <td className="px-3 py-3 font-mono text-xs">
+                  <td className="px-3 py-3 font-mono text-[11px] tabular-nums">
                     <Link href={`/projects/${project.id}/risks/${r.id}`} className="text-blue-600 hover:underline">
                       {r.code}
                     </Link>
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-3 max-w-[280px]">
                     <Link href={`/projects/${project.id}/risks/${r.id}`} className="font-medium text-slate-900 hover:text-blue-600">
                       {r.name}
                     </Link>
-                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{r.description}</p>
+                    {r.riskSource && (
+                      <p className="mt-1 line-clamp-2 text-[11px] text-slate-500">
+                        <span className="text-slate-400">风险源:</span> {r.riskSource}
+                      </p>
+                    )}
+                    {!r.riskSource && r.description && (
+                      <p className="mt-1 line-clamp-2 text-[11px] text-slate-500">{r.description}</p>
+                    )}
                     {(r.dataItems.length > 0 || r.scenarios.length > 0) && (
-                      <p className="mt-1 text-[10px] text-muted-foreground">
+                      <p className="mt-1 text-[10px] text-slate-400">
                         关联：{[...r.dataItems.map((d) => d.code), ...r.scenarios.map((s) => s.code)].join(' · ')}
                       </p>
                     )}
                   </td>
-                  <td className="px-3 py-3 text-xs">{r.category}</td>
-                  <td className="px-3 py-3 text-center tabular-nums">{r.likelihood}</td>
-                  <td className="px-3 py-3 text-center tabular-nums">{r.severity}</td>
-                  <td className="px-3 py-3 text-center font-semibold tabular-nums">{v ?? '—'}</td>
+                  <td className="px-3 py-3 max-w-[200px] text-[11px] text-slate-600">
+                    {r.affectedSubjects || <span className="text-slate-300">—</span>}
+                  </td>
                   <td className="px-3 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-xs ${RISK_LEVEL_COLOR[lv]}`}>{RISK_LEVEL_LABEL[lv]}</span>
+                    <ScoreBlocks scores={impactScores} dims={IMPACT_DIMENSIONS} />
+                    <p className="mt-1 text-[10px] text-slate-400 tabular-nums">综合 {r.impactOverall ?? 0}</p>
                   </td>
-                  <td className="px-3 py-3 text-xs">{r.strategy}</td>
-                  <td className="px-3 py-3 text-xs">
-                    {r.mitigations.length === 0 ? (
-                      <span className="text-red-500">无</span>
-                    ) : (
-                      r.mitigations.map((m) => (
-                        <div key={m.id} className="text-muted-foreground">{m.code}</div>
-                      ))
-                    )}
+                  <td className="px-3 py-3">
+                    <ScoreBlocks scores={factorScores} dims={LIKELIHOOD_FACTORS} />
+                    <p className="mt-1 text-[10px] text-slate-400 tabular-nums">综合 {r.likelihoodOverall ?? 0}</p>
                   </td>
-                  <td className="px-3 py-3 text-xs">
+                  <td className="px-3 py-3">
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${gbtLevelColor(r.impactOverall, r.likelihoodOverall)}`}>
+                      {gbtLevelLabel(r.impactOverall, r.likelihoodOverall)}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 text-[11px] text-slate-600">{r.strategy}</td>
+                  <td className="px-3 py-3 text-[11px]">
                     {r.lastEditActorType === 'AGENT' && r.lastEditAgentId ? (
                       <span className="chip-blue">
                         {agentMap.get(r.lastEditAgentId)?.displayName ?? 'Agent'}
@@ -126,6 +138,31 @@ export default async function RisksPage({ params }: { params: { id: string } }) 
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function ScoreBlocks({
+  scores,
+  dims,
+}: {
+  scores: Array<number | null | undefined>;
+  dims: ReadonlyArray<{ key: string; label: string; short: string }>;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      {scores.map((s, i) => {
+        const v = s ?? 0;
+        return (
+          <span
+            key={dims[i].key}
+            title={`${dims[i].label}: ${GBT_SCORE_LABEL[v]} (${v})`}
+            className={`flex h-6 w-6 items-center justify-center rounded text-[10px] font-semibold tabular-nums ${GBT_SCORE_COLOR[v]}`}
+          >
+            {v}
+          </span>
+        );
+      })}
     </div>
   );
 }

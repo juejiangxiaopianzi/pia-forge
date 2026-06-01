@@ -31,6 +31,9 @@ model Organization {
   sources        Source[]
   knowledgeBases KnowledgeBase[]
   InviteCode     InviteCode[]
+  comments        Comment[]        @relation("OrgComments")
+  assignments     Assignment[]     @relation("OrgAssignments")
+  reviewRequests  ReviewRequest[]  @relation("OrgReviews")
 }
 
 model User {
@@ -56,6 +59,11 @@ model User {
   agentsOwned       Agent[]      @relation("AgentOwner")
   invitesCreated    InviteCode[] @relation("InviteCreator")
   invitesUsed       InviteCode?  @relation("InviteUsedBy")
+  commentsAuthored      Comment[]       @relation("CommentAuthor")
+  assignmentsReceived   Assignment[]    @relation("AssignmentTo")
+  assignmentsCreated    Assignment[]    @relation("AssignmentFrom")
+  reviewsRequested      ReviewRequest[] @relation("ReviewRequester")
+  reviewsToDo           ReviewRequest[] @relation("Reviewer")
 }
 
 model Membership {
@@ -354,14 +362,38 @@ model Risk {
   name              String
   category          RiskCategory
   description       String       @db.Text
-  likelihood        Int // 1-5
-  severity          Int // 1-5
+  likelihood        Int // 1-5 · 兼容旧口径 · 新口径建议改用 likelihoodOverall(0-4)
+  severity          Int // 1-5 · 兼容旧口径 · 新口径建议改用 impactOverall(0-4)
   /// initial risk value = likelihood × severity (derived at read-time)
   legalClauses      String       @db.Text
   filerId           String?
   identifiedAt      DateTime     @default(now())
   strategy          RiskStrategy
   notes             String?      @db.Text
+
+  // ─── GB/T 39335-2020 国标风险评估字段 ───────
+  /// 风险源 · 哪个环节 + 哪个字段 + 什么处理活动
+  riskSource          String?      @db.Text
+  /// 威胁事件 · 具体可能发生什么
+  threatEvent         String?      @db.Text
+  /// 受影响个人信息主体范围 + 量级估算
+  affectedSubjects    String?      @db.Text
+
+  /// 个人权益影响 4 维度(0=无影响 1=低 2=中 3=高 4=严重)
+  impactDecide        Int?         @default(0) /// a) 限制自主决定权
+  impactDiscriminate  Int?         @default(0) /// b) 引发差别性待遇
+  impactReputation    Int?         @default(0) /// c) 名誉受损或精神压力
+  impactProperty      Int?         @default(0) /// d) 人身财产受损
+  /// 4 维综合(取 max 或加权)
+  impactOverall       Int?         @default(0)
+
+  /// 安全事件可能性 4 因素(0-4)
+  factorNetwork       Int?         @default(0) /// a) 网络环境技术措施
+  factorProcess       Int?         @default(0) /// b) 个人信息处理流程
+  factorPersonnel     Int?         @default(0) /// c) 参与人员第三方
+  factorBusiness      Int?         @default(0) /// d) 业务特点规模
+  likelihoodOverall   Int?         @default(0)
+
   /// 当前最后编辑者（denormalized for list view 性能）· 字段级历史走 FieldRevision
   lastEditActorType ActorType?
   lastEditUserId    String?
@@ -591,6 +623,8 @@ model Agent {
   owner        User            @relation("AgentOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   snapshots    AgentSnapshot[]
   apiTokens    ApiToken[]
+  commentsAuthored      Comment[]    @relation("CommentAuthorAgent")
+  assignmentsCreated    Assignment[] @relation("AssignmentFromAgent")
 
   @@index([organizationId])
   @@index([ownerId])
@@ -925,4 +959,99 @@ enum InviteCodeStatus {
   USED
   REVOKED
   EXPIRED
+}
+
+// ────────────────────────────────────────
+// 协作能力 · 评论 / 分派 / 审阅
+// ────────────────────────────────────────
+
+model Comment {
+  id              String    @id @default(cuid())
+  organizationId  String
+  /// 多态评论对象 · targetType ∈ Risk / DataItem / Mitigation / Scenario / Conclusion / PiaProject / PiaRole
+  targetType      String
+  targetId        String
+  authorUserId    String?
+  authorAgentId   String?
+  body            String    @db.Text
+  mentions        String[]  @default([])
+  replyToId       String?
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization Organization @relation("OrgComments", fields: [organizationId], references: [id], onDelete: Cascade)
+  author       User?        @relation("CommentAuthor", fields: [authorUserId], references: [id])
+  authorAgent  Agent?       @relation("CommentAuthorAgent", fields: [authorAgentId], references: [id])
+  replyTo      Comment?     @relation("CommentThread", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies      Comment[]    @relation("CommentThread")
+
+  @@index([organizationId])
+  @@index([targetType, targetId])
+}
+
+model Assignment {
+  id              String           @id @default(cuid())
+  organizationId  String
+  targetType      String
+  targetId        String
+  assigneeUserId  String
+  assignerUserId  String?
+  assignerAgentId String?
+  note            String?          @db.Text
+  dueAt           DateTime?
+  status          AssignmentStatus @default(TODO)
+  completedAt     DateTime?
+  completionNote  String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  organization  Organization @relation("OrgAssignments", fields: [organizationId], references: [id], onDelete: Cascade)
+  assignee      User         @relation("AssignmentTo", fields: [assigneeUserId], references: [id])
+  assigner      User?        @relation("AssignmentFrom", fields: [assignerUserId], references: [id])
+  assignerAgent Agent?       @relation("AssignmentFromAgent", fields: [assignerAgentId], references: [id])
+
+  @@index([organizationId])
+  @@index([assigneeUserId, status])
+  @@index([targetType, targetId])
+}
+
+enum AssignmentStatus {
+  TODO
+  IN_PROGRESS
+  AWAITING_REVIEW
+  DONE
+  CANCELLED
+}
+
+model ReviewRequest {
+  id               String       @id @default(cuid())
+  organizationId   String
+  targetType       String
+  targetId         String
+  fieldName        String?
+  currentValue     String?      @db.Text
+  proposedValue    String?      @db.Text
+  rationale        String?      @db.Text
+  requesterUserId  String
+  reviewerUserId   String
+  status           ReviewStatus @default(PENDING)
+  decisionNote     String?
+  decidedAt        DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  organization Organization @relation("OrgReviews", fields: [organizationId], references: [id], onDelete: Cascade)
+  requester    User         @relation("ReviewRequester", fields: [requesterUserId], references: [id])
+  reviewer     User         @relation("Reviewer", fields: [reviewerUserId], references: [id])
+
+  @@index([reviewerUserId, status])
+  @@index([targetType, targetId])
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  CHANGES_REQUESTED
+  REJECTED
 }

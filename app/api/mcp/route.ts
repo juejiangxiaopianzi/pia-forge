@@ -26,6 +26,7 @@ import { resolveActor, actorToLastEditFields } from '@/lib/actor';
 import { riskValue, riskLevelOf } from '@/lib/risk';
 import { writeFieldRevisions } from '@/lib/field-revision';
 import { writeCitations } from '@/lib/citations';
+import { notifyReviewRequest } from '@/lib/notify';
 
 export const dynamic = 'force-dynamic';
 
@@ -1038,6 +1039,7 @@ async function callTool(name: string, args: any, ctx: AuthContext, req: Request)
         },
       });
       await logAudit({ actor, resource: 'ReviewRequest', resourceId: r.id, action: 'create', source: 'MCP', diff: { created: r } });
+      await notifyReviewRequest(r);
       return wrapResult(r);
     }
 

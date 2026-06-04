@@ -11,6 +11,7 @@ import { verifyApiToken, requireScope } from '@/lib/api-auth';
 import { ok, created, errUnauthorized, errBadRequest, errServer } from '@/lib/api-response';
 import { logAudit } from '@/lib/audit-log';
 import { resolveActor } from '@/lib/actor';
+import { notifyReviewRequest } from '@/lib/notify';
 
 export const dynamic = 'force-dynamic';
 
@@ -88,6 +89,8 @@ export async function POST(req: Request) {
     source: actor.type === 'AGENT' ? 'REST_API' : 'WEB',
     diff: { created: r },
   });
+
+  await notifyReviewRequest(r);
 
   return created(r);
 }

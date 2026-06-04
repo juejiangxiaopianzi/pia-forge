@@ -22,10 +22,10 @@ const SETTINGS = [
     status: '规划中 · v0.2',
   },
   {
-    title: '飞书集成',
-    desc: '飞书 OAuth 登录 · 飞书云文档同步报告 · 飞书 IM 提醒',
-    href: '/settings/lark',
-    status: '规划中 · v0.2',
+    title: '绑定飞书',
+    desc: '绑定你的飞书身份 · 审阅/任务指派到你时，飞书私信一键通知',
+    href: '/settings/lark-binding',
+    status: '可用',
   },
   {
     title: 'Webhook',

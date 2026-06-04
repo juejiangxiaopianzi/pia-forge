@@ -98,7 +98,10 @@ export default async function LibraryPage({
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-[11px] font-medium uppercase tracking-wider text-blue-600">{activeTab.label} · 系统内可预览</p>
+        <div className="flex items-start justify-between gap-4">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-blue-600">{activeTab.label} · 系统内可预览</p>
+          <Link href="/library/new" className="btn-primary shrink-0 text-[12px]">+ 手动录入</Link>
+        </div>
         <h1 className="mt-1 text-[28px] font-semibold tracking-tight">
           {tabKey === 'laws' ? '法规库' : tabKey === 'team' ? '团队知识库' : tabKey === 'private' ? '私人知识库' : '知识库 · 全部'}
         </h1>
@@ -231,6 +234,7 @@ export default async function LibraryPage({
       <div className="card-soft border-l-2 border-l-blue-500 bg-blue-50/30 p-5 text-[12px] leading-relaxed text-slate-600">
         <p className="font-semibold text-slate-800">如何录入?</p>
         <ul className="mt-2 list-disc space-y-1 pl-5">
+          <li><span className="font-medium">手动录入</span> · 点右上角 <Link href="/library/new" className="text-blue-600 hover:underline">「+ 手动录入」</Link>,人工贴法规原文 / 内部文件 / 客户材料 / Agent 爬不下来的内容</li>
           <li><span className="font-medium">公共法规</span> · 你的 Agent 装 <code className="rounded bg-white px-1">legal-ingest</code> skill,看到新法规自动爬原文写到这里</li>
           <li><span className="font-medium">飞书部门 wiki</span> · 在 <Link href="/settings/knowledge-bases" className="text-blue-600 hover:underline">知识库连接</Link> 里录入飞书地址,系统定时同步</li>
           <li><span className="font-medium">个人解读</span> · 你的 Agent 装 <code className="rounded bg-white px-1">legal-review</code> skill,做完判断后 push 到你 GitHub Private repo,本系统索引并预览</li>

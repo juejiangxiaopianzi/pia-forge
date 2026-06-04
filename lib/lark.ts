@@ -161,3 +161,60 @@ export function bindSuccessCard(name: string, openUrl: string): object {
     ],
   };
 }
+
+// ───────────────────────── 飞书一键授权（OAuth 2.0）─────────────────────────
+
+/** PIA Forge 对外的 base url（飞书回调/卡片链接都用它，必须 https）。 */
+export function appBaseUrl(): string {
+  return process.env.NEXTAUTH_URL || 'https://47-237-111-215.sslip.io';
+}
+
+function oauthRedirectUri(): string {
+  return `${appBaseUrl()}/api/lark/oauth/callback`;
+}
+
+/** 构造飞书授权页 URL（用户点「飞书授权」跳这里）。 */
+export function larkAuthorizeUrl(state: string): string {
+  const params = new URLSearchParams({
+    client_id: process.env.LARK_CLIENT_ID || '',
+    redirect_uri: oauthRedirectUri(),
+    response_type: 'code',
+    state,
+  });
+  return `https://accounts.feishu.cn/open-apis/authen/v1/authorize?${params.toString()}`;
+}
+
+/** 用回调拿到的 code 换当前授权用户的 open_id（无需通讯录权限）。 */
+export async function larkExchangeCode(code: string): Promise<{ openId: string; name?: string }> {
+  const client_id = process.env.LARK_CLIENT_ID;
+  const client_secret = process.env.LARK_CLIENT_SECRET;
+  if (!client_id || !client_secret) throw new Error('飞书凭证未配置');
+
+  // 1) code → user access_token（OAuth 2.0 标准响应）
+  const tk = await fetch('https://open.feishu.cn/open-apis/authen/v2/oauth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      grant_type: 'authorization_code',
+      client_id,
+      client_secret,
+      code,
+      redirect_uri: oauthRedirectUri(),
+    }),
+  });
+  const tkd = await tk.json();
+  const accessToken = tkd.access_token;
+  if (!accessToken) {
+    throw new Error(`换 token 失败：${tkd.error_description || tkd.error || tkd.msg || '未知'}`);
+  }
+
+  // 2) access_token → 用户信息（含 open_id）
+  const ui = await fetch('https://open.feishu.cn/open-apis/authen/v1/user_info', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const uid = await ui.json();
+  if (uid.code !== 0 || !uid.data?.open_id) {
+    throw new Error(`拿用户信息失败：${uid.msg || '未知'}（code ${uid.code}）`);
+  }
+  return { openId: uid.data.open_id, name: uid.data.name };
+}
